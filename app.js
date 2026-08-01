@@ -11,7 +11,21 @@ function curWeek(){
   return Math.min(p.weeks, Math.max(1, Math.floor(n/7)+1));
 }
 function slotFor(day){const p=curP();return p.schedule[day===undefined?dIdx():day]}
-function sessFor(day){const s=slotFor(day);return (s==='rest'||s==='sport')?null:curP().sessions[s]}
+/* A session can come from three places: the programme, a saved custom workout,
+   or one built on the fly. Look in all of them. */
+function sessById(id){if(!id)return null;return curP().sessions[id]||D.custom[id]||null}
+/* TODAY'S session. If a session has already been chosen and logged for today —
+   picked on a rest day, rescued, or custom-built — that choice wins over the
+   schedule. Reading the schedule alone was why "train anyway" never opened. */
+function sessFor(day){
+  if(day===undefined){const l=D.logs[todayISO()];
+    if(l&&l.sid){const s=sessById(l.sid);if(s)return s}}
+  const s=slotFor(day);
+  return (s==='rest'||s==='sport')?null:curP().sessions[s];
+}
+function todaySid(){const l=D.logs[todayISO()];if(l&&l.sid&&sessById(l.sid))return l.sid;
+  const s=slotFor();return (s==='rest'||s==='sport')?null:s}
+function uid(){return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 function progPct(){const p=curP();return Math.min(100,Math.round((daysBetween(D.active.start,todayISO())+1)/(p.weeks*7)*100))}
 
 /* ================= PROGRESSION ENGINE ================= */
@@ -85,6 +99,57 @@ forearms:[5,8,25],traps:[4,6,20]};
 function volState(v,m){const L=LAND[m]||[6,10,20];
   return v<L[0]?['Under','var(--bad)']:v<L[1]?['Building','var(--warn)']
     :v<=L[2]?['In range','var(--ok)']:['High','var(--warn)']}
+
+/* ================= ANATOMY HEAT MAP =================
+   Two schematic figures, front and back. Each region is filled by how much
+   direct volume that muscle has taken against its OWN landmarks. */
+function heatFill(v,m){const L=LAND[m]||[6,10,20];
+  if(v<=0)return['var(--s3)',.55];
+  if(v<L[0])return['var(--acc)',.22];
+  if(v<L[1])return['var(--acc)',.45];
+  if(v<=L[2])return['var(--acc)',.95];
+  return['var(--warn)',.95];}
+function part(m,shape,v){const f=heatFill(v[m]===undefined?0:v[m],m);
+  return shape.replace('%%','fill="'+f[0]+'" fill-opacity="'+f[1]+
+    '" stroke="var(--bd)" stroke-width=".7"><title>'+MUSN[m]+' — '+(v[m]||0)+' sets</title>');}
+const SKIN='fill="var(--s2)" stroke="var(--bd)" stroke-width=".7"';
+function figFront(v){return `<svg viewBox="0 0 130 268" width="100%" role="img" aria-label="Front view heat map">
+<ellipse cx="65" cy="19" rx="11.5" ry="14" ${SKIN}/>
+<path d="M56 33h18l-2 8h-14z" ${SKIN}/>
+${part('traps','<path d="M50 41c6-4 24-4 30 0l-6 7H56z" %%</path>',v)}
+${part('delts','<ellipse cx="37" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
+${part('delts','<ellipse cx="93" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
+${part('chest','<path d="M49 48h14v24H51c-3-6-3-17-2-24z" %%</path>',v)}
+${part('chest','<path d="M81 48H67v24h12c3-6 3-17 2-24z" %%</path>',v)}
+${part('biceps','<ellipse cx="29" cy="84" rx="8" ry="17" transform="rotate(-7 29 84)" %%</ellipse>',v)}
+${part('biceps','<ellipse cx="101" cy="84" rx="8" ry="17" transform="rotate(7 101 84)" %%</ellipse>',v)}
+${part('forearms','<ellipse cx="23" cy="118" rx="7" ry="18" transform="rotate(-5 23 118)" %%</ellipse>',v)}
+${part('forearms','<ellipse cx="107" cy="118" rx="7" ry="18" transform="rotate(5 107 118)" %%</ellipse>',v)}
+${part('core','<path d="M51 74h28v44c0 5-6 8-14 8s-14-3-14-8z" %%</path>',v)}
+${part('quads','<ellipse cx="55" cy="163" rx="12.5" ry="33" %%</ellipse>',v)}
+${part('quads','<ellipse cx="75" cy="163" rx="12.5" ry="33" %%</ellipse>',v)}
+${part('calves','<ellipse cx="54" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
+${part('calves','<ellipse cx="76" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
+<text x="65" y="264" text-anchor="middle" font-size="8" fill="var(--tx3)">Front</text></svg>`}
+function figBack(v){return `<svg viewBox="0 0 130 268" width="100%" role="img" aria-label="Back view heat map">
+<ellipse cx="65" cy="19" rx="11.5" ry="14" ${SKIN}/>
+${part('traps','<path d="M65 33 46 44c-2 10 0 20 3 26l16-8 16 8c3-6 5-16 3-26z" %%</path>',v)}
+${part('delts','<ellipse cx="37" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
+${part('delts','<ellipse cx="93" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
+${part('back','<path d="M49 66c-4 12-3 26 2 34l14 6 14-6c5-8 6-22 2-34l-16 8z" %%</path>',v)}
+${part('triceps','<ellipse cx="29" cy="84" rx="8" ry="17" transform="rotate(-7 29 84)" %%</ellipse>',v)}
+${part('triceps','<ellipse cx="101" cy="84" rx="8" ry="17" transform="rotate(7 101 84)" %%</ellipse>',v)}
+${part('forearms','<ellipse cx="23" cy="118" rx="7" ry="18" transform="rotate(-5 23 118)" %%</ellipse>',v)}
+${part('forearms','<ellipse cx="107" cy="118" rx="7" ry="18" transform="rotate(5 107 118)" %%</ellipse>',v)}
+${part('glutes','<ellipse cx="55" cy="130" rx="13" ry="15" %%</ellipse>',v)}
+${part('glutes','<ellipse cx="75" cy="130" rx="13" ry="15" %%</ellipse>',v)}
+${part('hams','<ellipse cx="55" cy="175" rx="12" ry="29" %%</ellipse>',v)}
+${part('hams','<ellipse cx="75" cy="175" rx="12" ry="29" %%</ellipse>',v)}
+${part('calves','<ellipse cx="54" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
+${part('calves','<ellipse cx="76" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
+<text x="65" y="264" text-anchor="middle" font-size="8" fill="var(--tx3)">Back</text></svg>`}
+let HEATDAYS=7;
+function setHeat(d){HEATDAYS=d;render()}
 
 /* ================= STREAKS ================= */
 function jDone(k){const j=D.journal[k];if(!j)return 0;return JOURNAL.filter(x=>j[x.k]).length}
@@ -199,12 +264,24 @@ function rTrain(){
     h=`<div class="card"><div class="mid">${slot==='sport'?'Sport day':'Rest day'}</div>
       <div class="note" style="margin-top:7px">${slot==='sport'?esc(p.sportNote||'Golf or hike. Go and play.'):'No session scheduled. Mobility and sleep are the work today.'}</div></div>
       <div class="sec">Train something anyway</div>
-      <div class="tabs">${Object.keys(p.sessions).map(id=>`<button class="tab" onclick="freeSession('${id}')">${esc(p.sessions[id].n)}</button>`).join('')}</div>`;
+      <div class="note" style="margin-bottom:10px">Pick any session from ${esc(p.name)}. It gets logged and counted like any other, and it does not change where you are in the block.</div>
+      ${Object.keys(p.sessions).map(id=>`<div class="tst" onclick="freeSession('${id}')"><div style="flex:1">
+        <div style="font-weight:600;font-size:14px">${esc(p.sessions[id].n)}</div>
+        <div class="jm">${p.sessions[id].ex.length} exercises · ${p.sessions[id].mins} min</div></div>
+        <span style="color:var(--acc)">›</span></div>`).join('')}`;
+    if(D.mine.length){h+=`<div class="sec">Your own workouts</div>`+
+      D.mine.map(mw=>`<div class="tst" onclick="freeSession('${mw.id}')"><div style="flex:1">
+        <div style="font-weight:600;font-size:14px">${esc(mw.n)}</div>
+        <div class="jm">${mw.ex.length} exercises · yours</div></div>
+        <span style="color:var(--acc)">›</span></div>`).join('')}
+    h+=`<div class="sec">Or build one</div>
+      <button class="btn p" onclick="newWorkout()">Create a workout</button>`;
     document.getElementById('v-train').innerHTML=h;return;
   }
-  D.logs[k]=D.logs[k]||{sid:slot,pid:p.id,week:w,ex:[],done:false,start:Date.now()};
+  D.logs[k]=D.logs[k]||{sid:todaySid()||slot,pid:p.id,week:w,ex:[],done:false,start:Date.now()};
   const log=D.logs[k];
-  s.ex.forEach(ex=>{if(!log.ex.find(x=>x.n===ex.n)){
+  const EXS=s.ex.concat(log.extra||[]);   // programme exercises + anything added today
+  EXS.forEach(ex=>{if(!log.ex.find(x=>x.n===ex.n)){
     log.ex.push({n:ex.n,sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))})}});
 
   h+=`<div class="card" style="border-color:var(--accdim)">
@@ -213,7 +290,7 @@ function rTrain(){
     <div class="mid" style="margin:9px 0 4px">${esc(s.n)}</div>
     <div class="note">${esc(b.note)}</div></div>`;
 
-  s.ex.forEach((ex,i)=>{
+  EXS.forEach((ex,i)=>{
     const L=log.ex.find(x=>x.n===ex.n),T=target(ex,b.mod),info=EX[ex.n]||{m:[],c:''};
     const dn=L.sets.every(x=>x.done);
     h+=`<div class="ex ${dn?'done':''}">
@@ -242,7 +319,11 @@ function rTrain(){
 
   const allDone=log.ex.every(e=>e.sets.some(x=>x.done));
   h+=`<button class="btn ${allDone?'p':''}" style="margin:14px 0 6px" onclick="finish()">${log.done?'Session logged ✓':'Finish session'}</button>
-    <button class="btn gh" style="margin-bottom:20px" onclick="open_('note')">Session notes</button>`;
+    <div class="row" style="gap:7px;margin-bottom:20px">
+      <button class="btn gh" onclick="open_('note')">Notes</button>
+      <button class="btn gh" onclick="open_('addex')">+ Exercise</button>
+      <button class="btn gh" onclick="clearToday()">Swap</button>
+    </div>`;
   document.getElementById('v-train').innerHTML=h;
 }
 function tgl(i){const e=document.getElementById('exb'+i);e.style.display=e.style.display==='none'?'block':'none'}
@@ -259,9 +340,38 @@ function finish(){
     if(!D.pbs[e.n]||+x.w>+D.pbs[e.n].w)D.pbs[e.n]={w:+x.w,r:+x.r||0,d:d}})});
   save();open_('done')}
 function rescue(){open_('rescue')}
-function freeSession(id){const p=curP(),k=todayISO();
-  D.logs[k]={sid:id,pid:p.id,week:curWeek(),ex:[],done:false,start:Date.now(),free:true};
-  save();alert('Loaded '+p.sessions[id].n+'. It will show on the Train tab.');render()}
+/* Load ANY session as today's session — programme, custom or rescue. */
+function freeSession(id){const k=todayISO();
+  D.logs[k]={sid:id,pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),free:true};
+  save();go('train')}
+function clearToday(){const k=todayISO();
+  if(D.logs[k]&&D.logs[k].ex.some(e=>e.sets.some(s=>s.done))
+     &&!confirm('This session has logged sets. Clear it and pick another?'))return;
+  delete D.logs[k];save();go('train')}
+
+/* ---- Custom workout builder ---- */
+let BUILD=null;
+function newWorkout(){BUILD={id:uid(),n:'',w:'either',mins:40,ex:[]};open_('build')}
+function editWorkout(id){const w=D.mine.find(x=>x.id===id);
+  BUILD=w?JSON.parse(JSON.stringify(w)):null;if(BUILD)open_('build')}
+function bName(v){BUILD.n=v}
+function bWhere(v){BUILD.w=v;open_('build')}
+function bAdd(n){if(!n)return;BUILD.ex.push({n:n,s:3,r:'10',rest:90});open_('build')}
+function bDel(i){BUILD.ex.splice(i,1);open_('build')}
+function bSet(i,f,v){BUILD.ex[i][f]=(f==='s'||f==='rest')?(+v||0):v}
+function bMove(i,d){const a=BUILD.ex,j=i+d;if(j<0||j>=a.length)return;
+  const t=a[i];a[i]=a[j];a[j]=t;open_('build')}
+function bSave(start){
+  BUILD.n=(document.getElementById('bn')||{value:BUILD.n}).value||BUILD.n;
+  if(!BUILD.n.trim()){alert('Give the workout a name.');return}
+  if(!BUILD.ex.length){alert('Add at least one exercise.');return}
+  BUILD.mins=Math.max(10,BUILD.ex.reduce((a,e)=>a+e.s*((e.rest||60)+40)/60,0)|0);
+  const i=D.mine.findIndex(x=>x.id===BUILD.id);
+  if(i>=0)D.mine[i]=BUILD; else D.mine.push(BUILD);
+  D.custom[BUILD.id]=BUILD; save();
+  if(start)freeSession(BUILD.id); else {close_();go('more')}}
+function delWorkout(id){if(!confirm('Delete this workout?'))return;
+  D.mine=D.mine.filter(x=>x.id!==id);delete D.custom[id];save();close_();go('more')}
 
 /* ================= FUEL ================= */
 function rFuel(){
@@ -301,15 +411,26 @@ function addFood(n,g){const F=FOOD.find(x=>x.n===n);if(!F||!g)return;
 
 /* ================= PROGRESS ================= */
 function rProg(){
-  const v=volume(7),p=curP(),w=curWeek();
+  const v=volume(HEATDAYS),p=curP(),w=curWeek();
   let h=`<div class="card"><div class="row sp"><div class="lbl" style="margin:0">${esc(p.name)}</div>
     <span class="pill a">Week ${w} of ${p.weeks}</span></div>
     <div class="bar" style="margin:10px 0 9px"><i style="width:${progPct()}%"></i></div>
     <div class="dots">${Array.from({length:p.weeks},(_,i)=>`<div class="dot ${i<w?'on':''}"></div>`).join('')}</div>
     <div class="note" style="margin-top:10px">${esc(blockFor(p,w).note)}</div></div>`;
 
-  h+=`<div class="sec">Weekly volume · sets per muscle</div>
-    <div class="note" style="margin-bottom:10px">Roughly 10 sets a week is where growth starts and about 20 is the ceiling most people recover from. Under 6 means that muscle is only being maintained.</div>
+  h+=`<div class="sec">Volume · sets per muscle</div>
+    <div class="tabs">
+      <button class="tab ${HEATDAYS===7?'on':''}" onclick="setHeat(7)">This week</button>
+      <button class="tab ${HEATDAYS===1?'on':''}" onclick="setHeat(1)">Today</button>
+      <button class="tab ${HEATDAYS===30?'on':''}" onclick="setHeat(30)">30 days</button></div>
+    <div class="card" style="padding:10px 8px 4px">
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
+        <div>${figFront(v)}</div><div>${figBack(v)}</div></div>
+      <div class="row" style="gap:12px;flex-wrap:wrap;justify-content:center;padding:8px 4px 10px;border-top:1px solid var(--bd);margin-top:4px">
+        ${[['Untrained','var(--s3)',.55],['Maintaining','var(--acc)',.22],['Building','var(--acc)',.45],['In range','var(--acc)',.95],['Over','var(--warn)',.95]]
+          .map(l=>`<span class="row" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:${l[1]};opacity:${l[2]}"></span><span style="font-size:11px;color:var(--tx3)">${l[0]}</span></span>`).join('')}
+      </div></div>
+    <div class="note" style="margin-bottom:10px">Each muscle is shaded against its own landmarks, not one shared number — back and core recover from far more volume than biceps or calves. Tap any number below for the count.</div>
     <div class="hm">`;
   MUS.forEach(m=>{const s=volState(v[m],m);
     h+=`<div class="hmc"><div class="n">${MUSN[m]}</div>
@@ -364,6 +485,15 @@ function rMore(){
       <div class="row" style="gap:6px;margin-top:9px;flex-wrap:wrap">
         <span class="pill">${p.weeks} weeks</span><span class="pill">${p.days} days</span>
         <span class="pill">${esc(p.where)}</span><span class="pill">${esc(p.bias)}</span></div></div>`});
+
+  h+=`<div class="sec">Your workouts</div>`;
+  if(D.mine.length){D.mine.forEach(mw=>{
+    h+=`<div class="tst"><div style="flex:1" onclick="editWorkout('${mw.id}')">
+      <div style="font-weight:600;font-size:14px">${esc(mw.n)}</div>
+      <div class="jm">${mw.ex.length} exercises · ${esc(mw.w==='home'?'Home':mw.w==='gym'?'Gym':mw.w==='out'?'Outdoors':'Either')}</div></div>
+      <button class="btn sm gh" onclick="freeSession('${mw.id}')">Start</button></div>`})}
+  else h+=`<div class="note" style="margin-bottom:10px">None yet. Build one for the days the programme does not fit — a hotel room, a friend's garage, an extra arm session.</div>`;
+  h+=`<button class="btn" onclick="newWorkout()">Create a workout</button>`;
 
   h+=`<div class="sec">Mobility</div>`;
   Object.keys(MOB).forEach(k=>{h+=`<div class="tst"><div style="flex:1">
@@ -502,6 +632,45 @@ note:()=>{const l=curLog();return `<div class="mid">Session notes</div>
   <textarea id="sn" rows="5" style="margin-top:11px" placeholder="How did it feel? Anything to remember for next time?">${esc(l&&l.note||'')}</textarea>
   <button class="btn p" style="margin-top:11px" onclick="saveNote()">Save</button>`},
 
+build:()=>{const B=BUILD;if(!B)return '<div class="mid">Nothing to edit</div>';
+  const opts=Object.keys(EX).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  return `<div class="mid">${B.n?esc(B.n):'New workout'}</div>
+  <div class="jm" style="margin:5px 0 12px">Build it once, reuse it forever. It logs, progresses and counts toward your volume exactly like a programme session.</div>
+  <input id="bn" placeholder="Name it — e.g. Hotel room 20" value="${esc(B.n)}" onchange="bName(this.value)">
+  <div class="row" style="gap:7px;margin:10px 0 4px">
+    ${[['home','Home'],['gym','Gym'],['out','Outdoors'],['either','Either']].map(x=>
+      `<button class="btn sm ${B.w===x[0]?'p':'gh'}" onclick="bWhere('${x[0]}')">${x[1]}</button>`).join('')}</div>
+  <div class="sec">Exercises</div>
+  ${B.ex.length?B.ex.map((e,i)=>`<div class="card" style="background:var(--s2);padding:11px">
+      <div class="row sp"><span style="font-weight:600;font-size:14px;flex:1">${esc(e.n)}</span>
+        <span class="row" style="gap:9px;color:var(--tx3)">
+          <button onclick="bMove(${i},-1)">▲</button><button onclick="bMove(${i},1)">▼</button>
+          <button onclick="bDel(${i})">✕</button></span></div>
+      <div class="grid3" style="margin-top:9px">
+        <div><div class="tiny">Sets</div><input type="number" inputmode="numeric" value="${e.s}" onchange="bSet(${i},'s',this.value)"></div>
+        <div><div class="tiny">Reps</div><input value="${esc(e.r)}" onchange="bSet(${i},'r',this.value)"></div>
+        <div><div class="tiny">Rest s</div><input type="number" inputmode="numeric" value="${e.rest}" onchange="bSet(${i},'rest',this.value)"></div>
+      </div></div>`).join('')
+   :`<div class="note" style="margin-bottom:10px">No exercises yet. Add from the library below — all ${Object.keys(EX).length} of them, cues included.</div>`}
+  <div class="sec">Add from the library</div>
+  <select id="bx">${opts}</select>
+  <button class="btn" style="margin-top:8px" onclick="bAdd(document.getElementById('bx').value)">Add exercise</button>
+  <button class="btn p" style="margin-top:14px" onclick="bSave(true)">Save and start now</button>
+  <button class="btn gh" style="margin-top:7px" onclick="bSave(false)">Save for later</button>
+  ${D.mine.find(x=>x.id===B.id)?`<button class="btn gh" style="margin-top:7px;color:var(--bad)" onclick="delWorkout('${B.id}')">Delete</button>`:''}
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
+
+addex:()=>{const opts=Object.keys(EX).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
+  return `<div class="mid">Add an exercise to today</div>
+  <div class="jm" style="margin:6px 0 12px">One-off addition to this session only. It counts toward your volume and starts tracking for progression.</div>
+  <select id="ax">${opts}</select>
+  <div class="grid3" style="margin-top:10px">
+    <div><div class="tiny">Sets</div><input type="number" inputmode="numeric" id="as" value="3"></div>
+    <div><div class="tiny">Reps</div><input id="ar" value="10"></div>
+    <div><div class="tiny">Rest s</div><input type="number" inputmode="numeric" id="ard" value="90"></div></div>
+  <button class="btn p" style="margin-top:12px" onclick="addExToday()">Add</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
+
 set:()=>{const S=D.settings;return `<div class="mid">Settings</div>
   <div class="sec">Theme</div>
   <div class="row" style="gap:7px">
@@ -549,15 +718,21 @@ function doRescue(){
    :[{n:'Ring pull-up',s:3,r:'AMRAP minus 2',rest:90},{n:'Ring dip',s:3,r:'10',rest:75},
     {n:'KB military press',s:3,r:'8 per side',rest:75},{n:'Ring row',s:3,r:'12',rest:60},
     {n:'Ab wheel',s:3,r:'10',rest:45}];
-  curP().sessions.__rescue={n:'Rescue · 20 min',w:'home',mins:20,ex:ex};
+  /* store in D.custom so it survives a reload — mutating P does not persist */
+  D.custom.__rescue={n:'Rescue · 20 min',w:'home',mins:20,ex:ex};
   D.logs[k]={sid:'__rescue',pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),rescue:true};
-  curP().schedule=curP().schedule.slice();curP().schedule[dIdx()]='__rescue';
   save();close_();go('train')}
 function logBench(k){const v=document.getElementById('bv').value.trim();if(!v)return;
   D.bench[k]=D.bench[k]||[];D.bench[k].push({d:todayISO(),v:v});save();close_()}
 function logAssess(){const o={d:todayISO()};['hips','ankles','shoulders'].forEach(k=>o[k]=+document.getElementById('a_'+k).value||0);
   D.assess.push(o);save();close_()}
 function saveNote(){const l=curLog();if(l){l.note=document.getElementById('sn').value;save()}close_()}
+function addExToday(){const l=curLog();if(!l)return;
+  const n=document.getElementById('ax').value;
+  const e={n:n,s:+document.getElementById('as').value||3,
+    r:document.getElementById('ar').value||'10',rest:+document.getElementById('ard').value||90};
+  l.extra=l.extra||[]; if(!l.extra.find(x=>x.n===n)&&!l.ex.find(x=>x.n===n))l.extra.push(e);
+  save();close_();go('train')}
 function setTheme(t){D.settings.theme=t;document.documentElement.dataset.t=t;save();open_('set')}
 function tglBare(){D.settings.bareMode=!D.settings.bareMode;save();open_('set')}
 function saveSet(){['weight','age','height','restDefault','kcal','protein','fat'].forEach(k=>{
@@ -610,5 +785,13 @@ function expObs(){
 document.documentElement.dataset.t=D.settings.theme;
 if(!D.logs[todayISO()])save();
 render();
-if('serviceWorker' in navigator){navigator.serviceWorker.register('sw.js').catch(()=>{})}
+/* Auto-update: when a new version is pushed to GitHub, the new service worker
+   takes over and the app reloads itself once. No manual cache clearing. */
+if('serviceWorker' in navigator){
+  navigator.serviceWorker.register('sw.js').then(r=>{r.update();
+    setInterval(()=>r.update(),60*60*1000)}).catch(()=>{});
+  let reloading=false;
+  navigator.serviceWorker.addEventListener('controllerchange',()=>{
+    if(!reloading){reloading=true;location.reload()}});
+}
 document.addEventListener('gesturestart',e=>e.preventDefault());

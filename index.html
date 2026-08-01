@@ -195,7 +195,8 @@ const DEF={
   settings:{theme:'summit',name:'Juvies',age:22,height:178,weight:84,
     kcal:3500,protein:210,fat:295,bareMode:false,restDefault:90},
   active:{id:'p4',start:todayISO(),week:1},
-  logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[]
+  logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[],
+  custom:{}, mine:[]
 };
 let D=load();
 function todayISO(d){d=d||new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}

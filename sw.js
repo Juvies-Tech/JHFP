@@ -1,6 +1,9 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
-const C = 'jhfp-v1';
-const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png'];
+/* Bump this version string on every release — it is what triggers the
+   auto-update on Juan's phone. v2: kettlebell icon, custom workouts,
+   session-selection fix, anatomy heat map. */
+const C = 'jhfp-v2';
+const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));
