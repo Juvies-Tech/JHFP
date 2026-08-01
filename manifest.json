@@ -1,0 +1,15 @@
+{
+  "name": "Juvies Health & Fitness Protocol",
+  "short_name": "JHFP",
+  "description": "Training, mobility, carnivore fuel and daily protocol — one system.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#161A1D",
+  "theme_color": "#161A1D",
+  "icons": [
+    { "src": "icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" }
+  ]
+}
