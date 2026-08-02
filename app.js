@@ -101,55 +101,87 @@ function volState(v,m){const L=LAND[m]||[6,10,20];
     :v<=L[2]?['In range','var(--ok)']:['High','var(--warn)']}
 
 /* ================= ANATOMY HEAT MAP =================
-   Two schematic figures, front and back. Each region is filled by how much
-   direct volume that muscle has taken against its OWN landmarks. */
+   Line-art figures. Every muscle is a stroked outline; colour fills in only
+   as that muscle takes volume, judged against its own landmarks. Left-half
+   paths are mirrored for the right side. */
+const SILH='<ellipse cx="100" cy="28" rx="17.5" ry="21"/>'
++'<path d="M91,46 q9,7 18,0 l3,10 q-11,6 -24,0 Z"/>'
++'<path d="M79,58 Q100,50 121,58 Q139,66 143,104 Q145,150 139,190 Q135,216 131,240 '
++'L69,240 Q65,216 61,190 Q55,150 57,104 Q61,66 79,58 Z"/>'
++'<path d="M62,74 Q46,84 42,116 Q38,156 36,196 Q35,236 38,256 Q46,263 54,256 '
++'Q58,218 60,178 Q63,138 70,104 Z"/>'
++'<path d="M138,74 Q154,84 158,116 Q162,156 164,196 Q165,236 162,256 Q154,263 146,256 '
++'Q142,218 140,178 Q137,138 130,104 Z"/>'
++'<path d="M72,242 Q64,276 67,304 Q69,332 73,344 Q75,382 77,404 Q85,412 95,404 '
++'Q97,372 97,344 Q100,304 99,242 Z"/>'
++'<path d="M128,242 Q136,276 133,304 Q131,332 127,344 Q125,382 123,404 Q115,412 105,404 '
++'Q103,372 103,344 Q100,304 101,242 Z"/>';
+const AF={
+traps:["M97,54 L82,60 Q70,66 64,78 L95,72 Z"],
+delts:["M64,76 Q50,82 46,102 Q45,118 53,126 Q64,120 70,104 Q72,88 69,78 Z"],
+chest:["M98,76 L72,82 Q63,92 66,106 Q78,118 98,116 Z","M98,118 L70,110 Q64,120 68,130 Q82,138 98,134 Z"],
+biceps:["M52,128 Q44,146 46,168 Q51,180 60,176 Q66,154 64,130 Z"],
+forearms:["M47,182 Q40,204 41,230 Q46,246 55,240 Q61,214 59,184 Z"],
+core:["M88,124 h11 v15 h-11 Z","M88,142 h11 v15 h-11 Z","M88,160 h11 v15 h-11 Z",
+"M88,178 h11 v15 h-11 Z","M89,196 h10 v18 q-6,8 -10,0 Z",
+"M82,126 Q74,150 77,182 Q84,198 87,194 L87,128 Z"],
+quads:["M77,246 Q66,272 68,300 Q73,328 84,330 Q90,306 91,268 L91,248 Z",
+"M93,250 L97,250 Q97,296 92,322 Q87,326 85,318 Q90,286 90,254 Z"],
+calves:["M79,348 Q71,368 73,392 Q79,406 88,401 Q93,376 92,350 Z"]};
+const AB={
+traps:["M98,52 L80,60 Q66,70 62,84 Q68,102 78,114 Q88,122 98,124 Z"],
+delts:["M64,76 Q50,82 46,102 Q45,118 53,126 Q64,120 70,104 Q72,88 69,78 Z"],
+back:["M70,90 Q58,108 62,138 Q74,166 92,178 L98,176 L98,96 Z","M86,180 Q80,196 84,212 Q92,218 98,214 L98,180 Z"],
+triceps:["M52,128 Q43,146 45,168 Q50,180 59,176 Q66,154 64,130 Z"],
+forearms:["M47,182 Q40,204 41,230 Q46,246 55,240 Q61,214 59,184 Z"],
+glutes:["M97,192 Q77,194 69,210 Q66,232 77,242 Q90,242 97,232 Z"],
+hams:["M78,248 Q68,274 70,302 Q76,324 85,324 Q91,302 92,258 Z",
+"M94,252 L97,252 Q97,296 93,318 Q89,322 87,314 Q92,288 92,256 Z"],
+calves:["M79,346 Q72,362 74,382 Q80,394 87,390 Q91,368 90,348 Z",
+"M91,350 Q95,368 92,390 Q88,398 84,394 Q88,372 87,350 Z"]};
 function heatFill(v,m){const L=LAND[m]||[6,10,20];
-  if(v<=0)return['var(--s3)',.55];
-  if(v<L[0])return['var(--acc)',.22];
-  if(v<L[1])return['var(--acc)',.45];
-  if(v<=L[2])return['var(--acc)',.95];
-  return['var(--warn)',.95];}
-function part(m,shape,v){const f=heatFill(v[m]===undefined?0:v[m],m);
-  return shape.replace('%%','fill="'+f[0]+'" fill-opacity="'+f[1]+
-    '" stroke="var(--bd)" stroke-width=".7"><title>'+MUSN[m]+' — '+(v[m]||0)+' sets</title>');}
-const SKIN='fill="var(--s2)" stroke="var(--bd)" stroke-width=".7"';
-function figFront(v){return `<svg viewBox="0 0 130 268" width="100%" role="img" aria-label="Front view heat map">
-<ellipse cx="65" cy="19" rx="11.5" ry="14" ${SKIN}/>
-<path d="M56 33h18l-2 8h-14z" ${SKIN}/>
-${part('traps','<path d="M50 41c6-4 24-4 30 0l-6 7H56z" %%</path>',v)}
-${part('delts','<ellipse cx="37" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
-${part('delts','<ellipse cx="93" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
-${part('chest','<path d="M49 48h14v24H51c-3-6-3-17-2-24z" %%</path>',v)}
-${part('chest','<path d="M81 48H67v24h12c3-6 3-17 2-24z" %%</path>',v)}
-${part('biceps','<ellipse cx="29" cy="84" rx="8" ry="17" transform="rotate(-7 29 84)" %%</ellipse>',v)}
-${part('biceps','<ellipse cx="101" cy="84" rx="8" ry="17" transform="rotate(7 101 84)" %%</ellipse>',v)}
-${part('forearms','<ellipse cx="23" cy="118" rx="7" ry="18" transform="rotate(-5 23 118)" %%</ellipse>',v)}
-${part('forearms','<ellipse cx="107" cy="118" rx="7" ry="18" transform="rotate(5 107 118)" %%</ellipse>',v)}
-${part('core','<path d="M51 74h28v44c0 5-6 8-14 8s-14-3-14-8z" %%</path>',v)}
-${part('quads','<ellipse cx="55" cy="163" rx="12.5" ry="33" %%</ellipse>',v)}
-${part('quads','<ellipse cx="75" cy="163" rx="12.5" ry="33" %%</ellipse>',v)}
-${part('calves','<ellipse cx="54" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
-${part('calves','<ellipse cx="76" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
-<text x="65" y="264" text-anchor="middle" font-size="8" fill="var(--tx3)">Front</text></svg>`}
-function figBack(v){return `<svg viewBox="0 0 130 268" width="100%" role="img" aria-label="Back view heat map">
-<ellipse cx="65" cy="19" rx="11.5" ry="14" ${SKIN}/>
-${part('traps','<path d="M65 33 46 44c-2 10 0 20 3 26l16-8 16 8c3-6 5-16 3-26z" %%</path>',v)}
-${part('delts','<ellipse cx="37" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
-${part('delts','<ellipse cx="93" cy="57" rx="11" ry="12.5" %%</ellipse>',v)}
-${part('back','<path d="M49 66c-4 12-3 26 2 34l14 6 14-6c5-8 6-22 2-34l-16 8z" %%</path>',v)}
-${part('triceps','<ellipse cx="29" cy="84" rx="8" ry="17" transform="rotate(-7 29 84)" %%</ellipse>',v)}
-${part('triceps','<ellipse cx="101" cy="84" rx="8" ry="17" transform="rotate(7 101 84)" %%</ellipse>',v)}
-${part('forearms','<ellipse cx="23" cy="118" rx="7" ry="18" transform="rotate(-5 23 118)" %%</ellipse>',v)}
-${part('forearms','<ellipse cx="107" cy="118" rx="7" ry="18" transform="rotate(5 107 118)" %%</ellipse>',v)}
-${part('glutes','<ellipse cx="55" cy="130" rx="13" ry="15" %%</ellipse>',v)}
-${part('glutes','<ellipse cx="75" cy="130" rx="13" ry="15" %%</ellipse>',v)}
-${part('hams','<ellipse cx="55" cy="175" rx="12" ry="29" %%</ellipse>',v)}
-${part('hams','<ellipse cx="75" cy="175" rx="12" ry="29" %%</ellipse>',v)}
-${part('calves','<ellipse cx="54" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
-${part('calves','<ellipse cx="76" cy="222" rx="9.5" ry="25" %%</ellipse>',v)}
-<text x="65" y="264" text-anchor="middle" font-size="8" fill="var(--tx3)">Back</text></svg>`}
+  if(!v||v<=0)return['none',0];
+  if(v<L[0])return['var(--acc)',.25];
+  if(v<L[1])return['var(--acc)',.5];
+  if(v<=L[2])return['var(--acc)',.92];
+  return['var(--warn)',.92];}
+function figure(parts,v,label){
+  let o='<svg viewBox="0 0 200 430" width="100%" role="img" aria-label="'+label+' view muscle heat map">'
+   +'<g fill="none" stroke="var(--tx3)" stroke-width="1.2" stroke-linejoin="round" opacity=".75">'+SILH+'</g>';
+  for(let g=0;g<2;g++){
+    o+='<g'+(g?' transform="scale(-1,1) translate(-200,0)"':'')+'>';
+    for(const m in parts){const f=heatFill(v[m],m);
+      parts[m].forEach(d=>{o+='<path d="'+d+'" fill="'+f[0]+'" fill-opacity="'+f[1]
+        +'" stroke="var(--tx3)" stroke-width=".85" stroke-opacity=".8"><title>'
+        +MUSN[m]+' \u2014 '+(v[m]||0)+' sets</title></path>'});}
+    o+='</g>';}
+  return o+'<text x="100" y="426" text-anchor="middle" font-size="11" fill="var(--tx3)">'+label+'</text></svg>';
+}
+function figFront(v){return figure(AF,v,'Front')}
+function figBack(v){return figure(AB,v,'Back')}
 let HEATDAYS=7;
 function setHeat(d){HEATDAYS=d;render()}
+
+/* ================= CARDIO & EFFORT ================= */
+const CARDIO={
+run:{n:'Run',ic:'run',f:[['km','Distance','km'],['min','Time','min']],pace:1,bench:1,met:9.8},
+hike:{n:'Hike / walk',ic:'hike',f:[['km','Distance','km'],['min','Time','min'],['elev','Elevation','m']],met:6.5},
+erg:{n:'Bike / row / erg',ic:'erg',f:[['km','Distance','km'],['min','Time','min']],met:8.5},
+interval:{n:'Interval / circuit',ic:'int',f:[['rounds','Rounds',''],['min','Time','min']],met:8.0}};
+function isCardio(e){return !!(e&&e.k&&CARDIO[e.k])}
+/* Rough burn from METs when Juan does not enter a figure himself:
+   kcal = MET x bodyweight kg x hours. Good enough to trend, not a lab number. */
+function estKcal(kind,min){const C=CARDIO[kind];if(!C||!min)return 0;
+  return Math.round(C.met*(D.settings.weight||84)*(min/60));}
+function pace(km,min){if(!km||!min)return '';const p=min/km;
+  return Math.floor(p)+':'+String(Math.round((p%1)*60)).padStart(2,'0')+' /km';}
+function dayKcal(k){const l=D.logs[k];return l&&l.done?(+l.kcal||0):0}
+function kcalOver(days){let t=0;const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
+  for(const k in D.logs){if(k>=cut)t+=dayKcal(k)}return t}
+function avgEffort(days){const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
+  const es=[];for(const k in D.logs){const l=D.logs[k];
+    if(k>=cut&&l.done&&l.effort)es.push(+l.effort)}
+  return es.length?(es.reduce((a,b)=>a+b,0)/es.length):0}
 
 /* ================= STREAKS ================= */
 function jDone(k){const j=D.journal[k];if(!j)return 0;return JOURNAL.filter(x=>j[x.k]).length}
@@ -184,10 +216,64 @@ function tStart(sec){TSEC=sec||D.settings.restDefault;const el=document.getEleme
 function tAdd(s){TSEC+=s}
 function tStop(){clearInterval(TMR);document.getElementById('timer').classList.remove('on')}
 
+/* ---- Interval timer & stopwatch ---- */
+let IV=null, IVT=null;
+function buzz(p){if(navigator.vibrate)navigator.vibrate(p||[180])}
+function ivStart(){
+  const work=+document.getElementById('iw').value||30;
+  const rest=+document.getElementById('ir').value||30;
+  const rounds=+document.getElementById('ind').value||8;
+  const prep=+document.getElementById('ip').value||5;
+  IV={work:work,rest:rest,rounds:rounds,round:0,phase:'prep',left:prep,run:true};
+  D.settings.iv={work:work,rest:rest,rounds:rounds,prep:prep};save();
+  clearInterval(IVT);IVT=setInterval(ivTick,1000);ivPaint();}
+function ivTick(){
+  if(!IV||!IV.run)return;
+  IV.left--;
+  if(IV.left<=0){
+    if(IV.phase==='prep'){IV.phase='work';IV.round=1;IV.left=IV.work;buzz([200,80,200])}
+    else if(IV.phase==='work'){
+      /* the last work interval ends the session — no trailing rest */
+      if(IV.round>=IV.rounds){ivDone();return}
+      if(IV.rest>0){IV.phase='rest';IV.left=IV.rest;buzz([300])}
+      else{IV.round++;IV.left=IV.work;buzz([200,80,200])}}
+    else{IV.round++;IV.phase='work';IV.left=IV.work;buzz([200,80,200])}}
+  else if(IV.left<=3)buzz([60]);
+  ivPaint();}
+function ivDone(){IV.run=false;IV.phase='done';clearInterval(IVT);buzz([300,120,300,120,300]);ivPaint()}
+function ivPause(){if(!IV)return;IV.run=!IV.run;ivPaint()}
+function ivReset(){clearInterval(IVT);IV=null;open_('timer')}
+function ivPreset(w,r,n){D.settings.iv={work:w,rest:r,rounds:n,prep:(D.settings.iv||{}).prep||5};
+  save();open_('timer')}
+function ivPaint(){const el=document.getElementById('ivface');if(!el||!IV)return;
+  const c={prep:'var(--amb)',work:'var(--acc)',rest:'var(--ice)',done:'var(--grn)'}[IV.phase];
+  el.innerHTML='<div style="text-align:center;padding:14px 0">'
+   +'<div class="tiny" style="color:'+c+'">'+(IV.phase==='done'?'Complete':IV.phase.toUpperCase())+'</div>'
+   +'<div style="font-size:64px;font-weight:700;line-height:1.05;color:'+c+'" class="mono">'
+   +Math.floor(Math.max(0,IV.left)/60)+':'+String(Math.max(0,IV.left)%60).padStart(2,'0')+'</div>'
+   +'<div class="sub">Round '+Math.max(1,IV.round)+' of '+IV.rounds+'</div></div>';}
+let SW=null,SWT=null,SWL=[];
+function swToggle(){
+  if(SW&&SW.run){SW.run=false;SW.acc+=Date.now()-SW.t0;clearInterval(SWT)}
+  else{SW=SW||{acc:0,run:false};SW.run=true;SW.t0=Date.now();
+    clearInterval(SWT);SWT=setInterval(swPaint,80)}
+  swPaint();}
+function swLap(){if(!SW)return;SWL.unshift(swMs());swPaint()}
+function swReset(){clearInterval(SWT);SW=null;SWL=[];open_('timer')}
+function swMs(){if(!SW)return 0;return SW.acc+(SW.run?Date.now()-SW.t0:0)}
+function swPaint(){const el=document.getElementById('swface');if(!el)return;
+  const ms=swMs(),t=Math.floor(ms/1000);
+  el.innerHTML='<div style="text-align:center;padding:10px 0">'
+   +'<div style="font-size:56px;font-weight:700;line-height:1.05" class="mono">'
+   +String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')
+   +'<span style="font-size:24px;color:var(--tx3)">.'+String(Math.floor(ms%1000/100))+'</span></div>'
+   +(SWL.length?'<div class="jm" style="margin-top:8px">'+SWL.slice(0,6).map((l,i)=>
+     'Lap '+(SWL.length-i)+' \u00b7 '+Math.floor(l/60000)+':'+String(Math.floor(l%60000/1000)).padStart(2,'0')).join('<br>')+'</div>':'')
+   +'</div>';}
+
 /* ================= RENDER ROUTER ================= */
 function render(){
   const p=curP(),w=curWeek(),b=blockFor(p,w);
-  document.documentElement.dataset.t=D.settings.theme;
   const H={today:['Today',new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'})],
     train:[p.name,'Week '+w+' of '+p.weeks+' · '+b.type],
     fuel:['Fuel','Strict carnivore · lean bulk'],
@@ -212,7 +298,7 @@ function rToday(){
     <div class="mid" style="margin-bottom:6px">Golf or trail hike</div>
     <div class="note">${esc(p.sportNote||'Play. This is what the training is for — go use the body you are building.')}</div></div>`;
   }else if(s){
-    h+=`<div class="card" style="border-color:var(--accdim)">
+    h+=`<div class="card acc">
       <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Gym or home')}</span>
       <span class="pill">${s.mins} min</span></div>
       <div class="mid" style="margin:9px 0 3px">${esc(s.n)}</div>
@@ -226,12 +312,12 @@ function rToday(){
 
   const jd=jDone(k),st=streak();
   h+=`<div class="grid3" style="margin-bottom:10px">
-    <div class="card flat" style="margin:0"><div class="tiny">Streak</div><div class="big" style="color:var(--acc)">${st}</div></div>
-    <div class="card flat" style="margin:0"><div class="tiny">Protocol</div><div class="big">${jd}<span style="font-size:15px;color:var(--tx3)">/${JOURNAL.length}</span></div></div>
-    <div class="card flat" style="margin:0"><div class="tiny">Block</div><div class="big">${progPct()}<span style="font-size:15px;color:var(--tx3)">%</span></div></div>
+    <div class="stat acc"><div class="tiny">Streak</div><div class="big">${st}</div></div>
+    <div class="stat ice"><div class="tiny">Protocol</div><div class="big">${jd}<span style="font-size:15px;color:var(--tx3)">/${JOURNAL.length}</span></div></div>
+    <div class="stat grn"><div class="tiny">Block</div><div class="big">${progPct()}<span style="font-size:15px;color:var(--tx3)">%</span></div></div>
   </div>`;
 
-  h+=`<div class="card"><div class="row sp" style="margin-bottom:4px">
+  h+=`<div class="card ice"><div class="row sp" style="margin-bottom:4px">
     <div class="lbl" style="margin:0">Daily protocol</div>
     <button class="btn sm gh" onclick="jAll()">All</button></div>`;
   JOURNAL.forEach(j=>{const on=D.journal[k]&&D.journal[k][j.k];
@@ -245,7 +331,7 @@ function rToday(){
   h+=`</div><div class="jm" style="margin-top:8px">Electrolytes, creatine and glutamine only. Carnivore covers the rest.</div></div>`;
 
   const mk=MOBROT[dIdx()],M=MOB[mk],md=D.mobility[k];
-  h+=`<div class="card"><div class="row sp"><div class="lbl" style="margin:0">Tonight's mobility · ${esc(M.n)}</div>
+  h+=`<div class="card grn"><div class="row sp"><div class="lbl" style="margin:0">Tonight's mobility · ${esc(M.n)}</div>
     <span class="pill ${md?'g':''}">${md?'Done':mobStreak()+' day streak'}</span></div>
     <div class="note" style="margin:8px 0 10px">15–20 min. ${mk==='hips'||mk==='ankles'||mk==='shoulders'?'One of your three named restrictions.':'Full body reset.'}</div>
     <button class="btn" onclick="open_('mob','${mk}')">Open the routine</button></div>`;
@@ -284,7 +370,7 @@ function rTrain(){
   EXS.forEach(ex=>{if(!log.ex.find(x=>x.n===ex.n)){
     log.ex.push({n:ex.n,sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))})}});
 
-  h+=`<div class="card" style="border-color:var(--accdim)">
+  h+=`<div class="card acc">
     <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Either')}</span>
     <span class="pill">${esc(b.type)} · wk ${w}/${p.weeks}</span></div>
     <div class="mid" style="margin:9px 0 4px">${esc(s.n)}</div>
@@ -293,6 +379,27 @@ function rTrain(){
   EXS.forEach((ex,i)=>{
     const L=log.ex.find(x=>x.n===ex.n),T=target(ex,b.mod),info=EX[ex.n]||{m:[],c:''};
     const dn=L.sets.every(x=>x.done);
+    if(isCardio(ex)){
+      const C=CARDIO[ex.k]; L.c=L.c||{};
+      h+=`<div class="ex ${L.c.done?'done':''}">
+        <div class="exh"><div style="flex:1"><div class="exn">${esc(ex.n)}</div>
+          <div class="exm">${esc(C.n)}${ex.r?' \u00b7 '+esc(ex.r):''}</div></div>
+          <span class="pill b">${esc(C.n.split(' ')[0])}</span></div>
+        <div class="exb">
+          <div class="grid3">${C.f.map(f=>`<div><div class="tiny">${f[1]}${f[2]?' '+f[2]:''}</div>
+            <input type="number" inputmode="decimal" value="${esc(L.c[f[0]]||'')}"
+              onchange="cardioSet(${i},'${f[0]}',this.value)"></div>`).join('')}</div>
+          ${C.pace&&L.c.km&&L.c.min?`<div class="tgt" style="margin-top:9px">Pace ${pace(+L.c.km,+L.c.min)}${(+L.c.km>=4.8&&+L.c.km<=5.4)?' \u00b7 this counts as a 5k \u2014 log it under Benchmarks if it is a PB':''}</div>`:''}
+          <div class="grid2" style="margin-top:9px">
+            <div><div class="tiny">Calories</div><input type="number" inputmode="numeric"
+              placeholder="${estKcal(ex.k,+L.c.min||0)||'\u2014'}" value="${esc(L.c.kcal||'')}"
+              onchange="cardioSet(${i},'kcal',this.value)"></div>
+            <div><div class="tiny">Effort 1\u201310</div><input type="number" inputmode="numeric" min="1" max="10"
+              value="${esc(L.c.effort||'')}" onchange="cardioSet(${i},'effort',this.value)"></div></div>
+          <button class="btn ${L.c.done?'':'p'}" style="margin-top:10px" onclick="cardioDone(${i})">${L.c.done?'Logged \u2713':'Log it'}</button>
+        </div></div>`;
+      return;
+    }
     h+=`<div class="ex ${dn?'done':''}">
       <div class="exh" onclick="tgl(${i})">
         <div style="flex:1"><div class="exn">${esc(ex.n)}${ex.fst?' <span class="pill a" style="vertical-align:2px">FST-7</span>':''}</div>
@@ -317,9 +424,19 @@ function rTrain(){
   if(s.fin)h+=`<div class="card"><div class="lbl">Finisher</div><div class="note">${esc(s.fin)}</div>
     <div class="warnbox" style="margin-top:9px">Bike, rower, sled or hill sprints by preference. Flat running is the one that competes with your lifting — hills are concentric-dominant and cost far less.</div></div>`;
 
-  const allDone=log.ex.every(e=>e.sets.some(x=>x.done));
+  h+=`<div class="card red"><div class="lbl">Session burn &amp; effort</div>
+    <div class="grid2">
+      <div><div class="tiny">Calories</div><input type="number" inputmode="numeric"
+        placeholder="auto" value="${esc(log.kcal||'')}" onchange="logSet('kcal',this.value)"></div>
+      <div><div class="tiny">Effort 1\u201310</div><input type="number" inputmode="numeric" min="1" max="10"
+        placeholder="\u2014" value="${esc(log.effort||'')}" onchange="logSet('effort',this.value)"></div>
+    </div>
+    <div class="jm" style="margin-top:7px">Leave calories blank and I'll estimate from the work you logged. Effort is your read, not a formula \u2014 it is what tells the deload apart from the grind.</div></div>`;
+
+  const allDone=log.ex.every(e=>e.sets.some(x=>x.done)||(e.c&&e.c.done));
   h+=`<button class="btn ${allDone?'p':''}" style="margin:14px 0 6px" onclick="finish()">${log.done?'Session logged ✓':'Finish session'}</button>
     <div class="row" style="gap:7px;margin-bottom:20px">
+      <button class="btn gh" onclick="open_('timer')">Timer</button>
       <button class="btn gh" onclick="open_('note')">Notes</button>
       <button class="btn gh" onclick="open_('addex')">+ Exercise</button>
       <button class="btn gh" onclick="clearToday()">Swap</button>
@@ -329,12 +446,24 @@ function rTrain(){
 function tgl(i){const e=document.getElementById('exb'+i);e.style.display=e.style.display==='none'?'block':'none'}
 function curLog(){return D.logs[todayISO()]}
 function setV(i,j,f,v){const l=curLog();l.ex[i].sets[j][f]=v;save()}
+function cardioSet(i,f,v){const l=curLog();l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;save()}
+function cardioDone(i){const l=curLog(),c=l.ex[i].c=l.ex[i].c||{};
+  c.done=!c.done;
+  if(c.done&&!c.kcal){const ex=(sessFor().ex.concat(l.extra||[]))[i];c.kcal=estKcal(ex.k,+c.min||0)}
+  save();rTrain()}
 function setDone(i,j,rest){const l=curLog(),st=l.ex[i].sets[j];st.done=!st.done;
   if(st.done&&rest)tStart(rest);save();rTrain()}
 function addSet(i){curLog().ex[i].sets.push({w:'',r:'',done:false});save();rTrain()}
 function delSet(i,j){const s=curLog().ex[i].sets;if(s.length>1)s.splice(j,1);save();rTrain()}
+function logSet(f,v){const l=curLog();if(l){l[f]=v;save()}}
 function finish(){
   const l=curLog();l.done=true;l.dur=Math.round((Date.now()-(l.start||Date.now()))/1000);
+  /* calories: whatever Juan entered, else cardio entries, else a lifting estimate */
+  let ck=l.ex.reduce((a,e)=>a+(e.c&&+e.c.kcal||0),0);
+  if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
+    const lift=Math.round(sets*(D.settings.weight||84)*0.11);
+    l.kcal=ck+lift;}
+  else l.kcal=+l.kcal;
   const d=todayISO();D.journal[d]=D.journal[d]||{};D.journal[d].workout=true;
   l.ex.forEach(e=>{e.sets.filter(x=>x.done&&+x.w>0).forEach(x=>{
     if(!D.pbs[e.n]||+x.w>+D.pbs[e.n].w)D.pbs[e.n]={w:+x.w,r:+x.r||0,d:d}})});
@@ -357,6 +486,8 @@ function editWorkout(id){const w=D.mine.find(x=>x.id===id);
 function bName(v){BUILD.n=v}
 function bWhere(v){BUILD.w=v;open_('build')}
 function bAdd(n){if(!n)return;BUILD.ex.push({n:n,s:3,r:'10',rest:90});open_('build')}
+function bAddCardio(k){const C=CARDIO[k];if(!C)return;
+  BUILD.ex.push({n:C.n,k:k,s:1,r:'',rest:0});open_('build')}
 function bDel(i){BUILD.ex.splice(i,1);open_('build')}
 function bSet(i,f,v){BUILD.ex[i][f]=(f==='s'||f==='rest')?(+v||0):v}
 function bMove(i,d){const a=BUILD.ex,j=i+d;if(j<0||j>=a.length)return;
@@ -438,6 +569,11 @@ function rProg(){
       <span style="font-size:10px;font-weight:700;color:${s[1]}">${s[0]}</span></div></div>`});
   h+=`</div>`;
 
+  h+=`<div class="sec">Output</div><div class="grid3">
+    <div class="stat red"><div class="tiny">Kcal 7d</div><div class="big mono">${fmt(kcalOver(7))}</div></div>
+    <div class="stat amb"><div class="tiny">Kcal 30d</div><div class="big mono">${fmt(kcalOver(30))}</div></div>
+    <div class="stat ice"><div class="tiny">Avg effort</div><div class="big mono">${avgEffort(30)?fmt(avgEffort(30),1):'\u2014'}</div></div></div>`;
+
   const wk=Object.keys(D.logs).filter(k=>D.logs[k].done).length;
   const dur=Object.values(D.logs).filter(l=>l.done&&l.dur).map(l=>l.dur);
   h+=`<div class="sec">Totals</div><div class="grid3">
@@ -486,6 +622,11 @@ function rMore(){
         <span class="pill">${p.weeks} weeks</span><span class="pill">${p.days} days</span>
         <span class="pill">${esc(p.where)}</span><span class="pill">${esc(p.bias)}</span></div></div>`});
 
+  h+=`<div class="sec">Tools</div>
+    <div class="tst" onclick="open_('timer')"><div style="flex:1">
+      <div style="font-weight:600;font-size:14px">Interval timer &amp; stopwatch</div>
+      <div class="jm">EMOMs, sprints, Tabata, rounds \u00b7 or a plain stopwatch for benchmarks</div></div>
+      <span style="color:var(--acc)">\u203a</span></div>`;
   h+=`<div class="sec">Your workouts</div>`;
   if(D.mine.length){D.mine.forEach(mw=>{
     h+=`<div class="tst"><div style="flex:1" onclick="editWorkout('${mw.id}')">
@@ -641,17 +782,22 @@ build:()=>{const B=BUILD;if(!B)return '<div class="mid">Nothing to edit</div>';
     ${[['home','Home'],['gym','Gym'],['out','Outdoors'],['either','Either']].map(x=>
       `<button class="btn sm ${B.w===x[0]?'p':'gh'}" onclick="bWhere('${x[0]}')">${x[1]}</button>`).join('')}</div>
   <div class="sec">Exercises</div>
-  ${B.ex.length?B.ex.map((e,i)=>`<div class="card" style="background:var(--s2);padding:11px">
+  ${B.ex.length?B.ex.map((e,i)=>`<div class="card ${isCardio(e)?'amb':'plain'}" style="background:var(--s2);padding:11px">
       <div class="row sp"><span style="font-weight:600;font-size:14px;flex:1">${esc(e.n)}</span>
         <span class="row" style="gap:9px;color:var(--tx3)">
           <button onclick="bMove(${i},-1)">▲</button><button onclick="bMove(${i},1)">▼</button>
           <button onclick="bDel(${i})">✕</button></span></div>
-      <div class="grid3" style="margin-top:9px">
+      ${isCardio(e)?`<div class="jm" style="margin-top:6px">You'll log ${CARDIO[e.k].f.map(f=>f[1].toLowerCase()).join(', ')}, calories and effort when you do it.</div>
+        <input style="margin-top:8px" placeholder="Note \u2014 e.g. Zone 2, or 6\u00d7800m" value="${esc(e.r)}" onchange="bSet(${i},'r',this.value)">`
+      :`<div class="grid3" style="margin-top:9px">
         <div><div class="tiny">Sets</div><input type="number" inputmode="numeric" value="${e.s}" onchange="bSet(${i},'s',this.value)"></div>
         <div><div class="tiny">Reps</div><input value="${esc(e.r)}" onchange="bSet(${i},'r',this.value)"></div>
         <div><div class="tiny">Rest s</div><input type="number" inputmode="numeric" value="${e.rest}" onchange="bSet(${i},'rest',this.value)"></div>
-      </div></div>`).join('')
+      </div>`}</div>`).join('')
    :`<div class="note" style="margin-bottom:10px">No exercises yet. Add from the library below — all ${Object.keys(EX).length} of them, cues included.</div>`}
+  <div class="sec">Add cardio</div>
+  <div class="row" style="gap:6px;flex-wrap:wrap">
+    ${Object.keys(CARDIO).map(k=>`<button class="btn sm gh" onclick="bAddCardio('${k}')">+ ${esc(CARDIO[k].n)}</button>`).join('')}</div>
   <div class="sec">Add from the library</div>
   <select id="bx">${opts}</select>
   <button class="btn" style="margin-top:8px" onclick="bAdd(document.getElementById('bx').value)">Add exercise</button>
@@ -671,13 +817,42 @@ addex:()=>{const opts=Object.keys(EX).map(n=>`<option value="${esc(n)}">${esc(n)
   <button class="btn p" style="margin-top:12px" onclick="addExToday()">Add</button>
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
 
-set:()=>{const S=D.settings;return `<div class="mid">Settings</div>
-  <div class="sec">Theme</div>
-  <div class="row" style="gap:7px">
-    <button class="btn ${S.theme==='summit'?'p':'gh'}" onclick="setTheme('summit')">Summit</button>
-    <button class="btn ${S.theme==='ember'?'p':'gh'}" onclick="setTheme('ember')">Ember</button></div>
-  <div class="jm" style="margin-top:6px">Both are dark. Summit is glacier on slate, Ember is orange on near-black.</div>
+timer:()=>{const iv=D.settings.iv||{work:30,rest:30,rounds:8,prep:5};
+  return `<div class="mid">Timer</div>
+  <div class="tabs" style="margin-top:12px">
+    <button class="tab on">Interval</button><button class="tab" onclick="open_('sw')">Stopwatch</button></div>
+  <div class="card acc" id="ivface" style="margin-bottom:12px">
+    <div style="text-align:center;padding:14px 0"><div class="tiny">Ready</div>
+    <div style="font-size:64px;font-weight:700;line-height:1.05;color:var(--acc)" class="mono">0:00</div>
+    <div class="sub">Set it up below</div></div></div>
+  <div class="grid2">
+    <div><div class="tiny">Work s</div><input type="number" inputmode="numeric" id="iw" value="${iv.work}"></div>
+    <div><div class="tiny">Rest s</div><input type="number" inputmode="numeric" id="ir" value="${iv.rest}"></div>
+    <div><div class="tiny">Rounds</div><input type="number" inputmode="numeric" id="ind" value="${iv.rounds}"></div>
+    <div><div class="tiny">Get ready s</div><input type="number" inputmode="numeric" id="ip" value="${iv.prep}"></div>
+  </div>
+  <div class="row" style="gap:6px;margin-top:10px;flex-wrap:wrap">
+    ${[['EMOM 60/0 \u00d710',60,0,10],['Sprints 20/40 \u00d78',20,40,8],['Rounds 30/30 \u00d712',30,30,12],['Tabata 20/10 \u00d78',20,10,8]]
+      .map(x=>`<button class="btn sm gh" onclick="ivPreset(${x[1]},${x[2]},${x[3]})">${x[0]}</button>`).join('')}</div>
+  <button class="btn p" style="margin-top:12px" onclick="ivStart()">Start</button>
+  <div class="row" style="gap:7px;margin-top:7px">
+    <button class="btn gh" onclick="ivPause()">Pause / resume</button>
+    <button class="btn gh" onclick="ivReset()">Reset</button></div>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
 
+sw:()=>`<div class="mid">Stopwatch</div>
+  <div class="tabs" style="margin-top:12px">
+    <button class="tab" onclick="open_('timer')">Interval</button><button class="tab on">Stopwatch</button></div>
+  <div class="card ice" id="swface"><div style="text-align:center;padding:10px 0">
+    <div style="font-size:56px;font-weight:700" class="mono">00:00<span style="font-size:24px;color:var(--tx3)">.0</span></div></div></div>
+  <button class="btn p" onclick="swToggle()">Start / stop</button>
+  <div class="row" style="gap:7px;margin-top:7px">
+    <button class="btn gh" onclick="swLap()">Lap</button>
+    <button class="btn gh" onclick="swReset()">Reset</button></div>
+  <div class="jm" style="margin-top:10px">Use this for The Standard, Murph, Anna and anything timed. Log the result under Progress \u2192 Benchmarks.</div>
+  <button class="btn gh" style="margin-top:10px" onclick="close_()">Close</button>`,
+
+set:()=>{const S=D.settings;return `<div class="mid">Settings</div>
   <div class="sec">Bare Mode</div>
   <div class="row sp"><div style="flex:1"><div style="font-weight:600;font-size:15px">Run first, lift later</div>
     <div class="jm">Nick Bare's double-day. Only applies to Froning &amp; Fraser, Trail &amp; Summit and Long Road.</div></div>
@@ -733,7 +908,6 @@ function addExToday(){const l=curLog();if(!l)return;
     r:document.getElementById('ar').value||'10',rest:+document.getElementById('ard').value||90};
   l.extra=l.extra||[]; if(!l.extra.find(x=>x.n===n)&&!l.ex.find(x=>x.n===n))l.extra.push(e);
   save();close_();go('train')}
-function setTheme(t){D.settings.theme=t;document.documentElement.dataset.t=t;save();open_('set')}
 function tglBare(){D.settings.bareMode=!D.settings.bareMode;save();open_('set')}
 function saveSet(){['weight','age','height','restDefault','kcal','protein','fat'].forEach(k=>{
   const el=document.getElementById('s_'+k);if(el&&el.value!=='')D.settings[k]=+el.value});save();close_()}
@@ -782,7 +956,6 @@ function expObs(){
 }
 
 /* ================= BOOT ================= */
-document.documentElement.dataset.t=D.settings.theme;
 if(!D.logs[todayISO()])save();
 render();
 /* Auto-update: when a new version is pushed to GitHub, the new service worker

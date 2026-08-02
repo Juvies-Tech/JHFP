@@ -1,8 +1,9 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
 /* Bump this version string on every release — it is what triggers the
-   auto-update on Juan's phone. v2: kettlebell icon, custom workouts,
-   session-selection fix, anatomy heat map. */
-const C = 'jhfp-v2';
+   auto-update on Juan's phone. v3: option-B kettlebell icon, merged ember/glacier
+   theme, line-art anatomy heat map, cardio workouts, calories and effort,
+   interval timer and stopwatch. */
+const C = 'jhfp-v3';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
