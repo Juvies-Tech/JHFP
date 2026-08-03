@@ -638,3 +638,218 @@ lean:[{n:'Meal 1',d:'500g mince or 4 beef patties'},
 {n:'Meal 3',d:'500–700g steak or lamb chops or a whole chicken'}],
 shred:[{n:'Meal 1',d:'10–12 eggs scrambled with creatine and salt'},
 {n:'Meal 2',d:'Steak, mince, patty, lamb chop or whole chicken'}]};
+
+/* ============================================================================
+   v4 ADDITIONS
+   ========================================================================== */
+
+/* ---- MOTIVATION. Juan's own lines. Shown on Today, in-session and on finish. ---- */
+const QUOTES=[
+'Go One More.',
+'Hard To Kill.',
+'No one cares. Work harder.',
+'Perspective & Gratitude.',
+'HWPO — Hard Work Pays Off.',
+'No problems. Just more work to be done.',
+'Pressure is a privilege.',
+'Intensity is my sanctuary.',
+'Bet on yourself every single day.',
+'Be a man of your word — do what you say you’ll do.',
+'It’s a principle.',
+'Standards before comfort.',
+'Growth happens outside the comfort zone.',
+'I don’t fear the man who has practised 1,000 kicks once, but the man who has practised 1 kick 1,000 times.',
+'Enjoy the hard days. Not every day is going to be fun, but the hard days are when you get better.',
+'Success is rented, never owned. Rent’s due every day.'];
+/* Deterministic per day so the line does not flicker on every re-render,
+   but the in-session tip rotates on the set index. */
+function quoteFor(seed){
+  const n=(seed===undefined)
+    ? Math.floor(new Date(todayISO()).getTime()/864e5)
+    : Math.abs(seed|0);
+  return QUOTES[n%QUOTES.length];
+}
+
+/* ---- STRIKING. Long bag + gloves are now part of the home kit. ---- */
+Object.assign(EX,{
+'Shadow boxing':{m:['delts','core','calves','conditioning'],c:'No bag, no gloves. Hands up, chin down, move the feet. This is where technique is actually built — slow and correct beats fast and sloppy.'},
+'Bag work — boxing':{m:['delts','core','back','conditioning'],c:'Rotate the hips and the rear heel on every cross. Snap the punch back — the retraction is the shot, not the extension. Wrap or glove up every time; the bag does not care about your knuckles.'},
+'Bag work — kickboxing':{m:['quads','glutes','core','conditioning'],c:'Round kick turns over the standing foot — heel points at the target. Shin, not instep. Hands stay up when you kick or you have just paid for the kick with your head.'},
+'Bag work — Muay Thai':{m:['quads','core','delts','conditioning'],c:'Eight limbs: fists, elbows, knees, shins. Kick through the bag, not at it. Teeps to manage range, clinch knees to finish.'},
+'Teep / push kick':{m:['quads','core','glutes'],c:'Knee up first, then extend. It is a jab with your foot — range control, not damage.'},
+'Round kick':{m:['quads','glutes','core'],c:'Step out at 45°, turn the standing heel over, whip the shin through. Arm swings down for torque.'},
+'Knee strike':{m:['quads','glutes','core'],c:'Pull down as the knee comes up. Point the toe, drive the hip through.'},
+'Elbow strike':{m:['delts','core','back'],c:'Short range only. Turn the whole torso — the elbow is just the point of contact.'},
+'Slip & roll drill':{m:['core','calves'],c:'Bend the knees, not the waist. Head off the centre line, eyes stay on the bag.'},
+'Bag clinch knees':{m:['core','quads','glutes','conditioning'],c:'Hands behind the bag, elbows in, break the posture down, alternate knees. Lung-burner.'},
+/* --- athletic / power, for the Justin King block --- */
+'Box jump':{m:['quads','glutes','calves'],c:'Land soft and quiet in the same shape you left the floor in. Step DOWN, never jump down \u2014 the landing is where achilles injuries come from. Low reps, full recovery, this is a power lift not a conditioning one.'},
+'Med ball rotational throw':{m:['core','glutes','delts'],c:'Rotate from the hips and the back foot, not the lumbar spine. Throw as hard as you can \u2014 intent is the whole exercise. Doubles as golf transition work.'},
+'Farmer carry':{m:['forearms','traps','core','glutes'],c:'Heavy as you can hold, ribs down, shoulders back, walk tall and quiet. Grip, trunk and posture in one. Your kettlebells work for this at home.'}});
+
+/* Striking cardio types (box / kick / muay) are added to CARDIO in app.js —
+   CARDIO is declared there and data.js loads first, so it cannot be touched here. */
+
+/* ---- KETTLEBELL COMPLEXES ----
+   Straight from Juan's Hard to Kill note. These are OPTIONAL: run one as a
+   finisher on any session, or as a standalone second workout for the day.
+   They are deliberately short and unbroken — the bell does not come down
+   inside a round. Rest is between rounds only. */
+const KBX={
+pd:{n:'PD Special',rounds:5,rest:75,kit:'1 bell',
+  seq:[['KB bent-over row',5],['KB two-arm swing',5],['KB thruster',5]],
+  note:'The cleanest one to start with. Row, swing, thruster — unbroken, then set it down.'},
+gimli:{n:'Gimli',rounds:5,rest:75,kit:'1 bell',
+  seq:[['KB two-arm swing',5],['KB high pull',4],['KB goblet squat',3]],
+  note:'Descending ladder. Play with the rep numbers as you get fitter — 5/4/3 is the floor, not the rule.'},
+zeus:{n:'Zeus',rounds:5,rest:90,kit:'1 bell · all one side, then switch',
+  seq:[['KB single-leg RDL',5],['KB clean',4],['KB military press',3]],
+  note:'Finish every rep on one arm before you switch. Optional extras between rounds: dips, pull-ups, lunges.'},
+achilles:{n:'Achilles',rounds:5,rest:90,kit:'1 bell · same side throughout',
+  seq:[['KB single-arm swing',3],['KB snatch',3],['KB overhead lunge',3]],
+  note:'All three same side, rest, then switch. Add pull-ups and leg raises between rounds if you want the full version.'},
+athena:{n:'Athena',rounds:5,rest:75,kit:'1 bell',
+  seq:[['KB two-arm swing',7],['KB high pull',7],['KB clean',4]],
+  note:'Squat cleans are 4 per side, offset. Reversible — run it backwards once it feels easy.'},
+hercules:{n:'Hercules',rounds:7,rest:60,kit:'1 bell · switch sides each round',
+  seq:[['KB two-arm swing',3],['KB clean',4],['KB push press',5]],
+  note:'3/4/5 light, 5/6/7 when you want more. Seven rounds, switch sides each round. Reversible.'},
+mick:{n:'Big Mick',rounds:7,rest:60,kit:'1 bell · single arm · switch each round',
+  seq:[['KB bent-over row',3],['KB single-arm swing',4],['KB snatch',5]],
+  note:'3/4/5 or 5/6/7. Heavier bell + more rest = strength. Lighter bell + less rest = engine. Pick one, do not split the difference.'},
+flow:{n:'Flow',rounds:5,rest:75,kit:'1 bell · continuous',
+  seq:[['KB two-arm swing',5],['KB snatch',3],['KB thruster',3],['KB windmill',2]],
+  note:'One movement melts into the next — swing to snatch to thruster to windmill. Quality over speed; this one is a skill session disguised as conditioning.'},
+rogan:{n:'Rogan',rounds:3,rest:75,kit:'1 bell · 10 reps each',
+  seq:[['KB single-arm swing',10],['KB clean & press',10],['KB windmill',10],['KB renegade row',10]],
+  note:'Warm up first: 25 push-ups and 50 squats. Then 3 rounds of 10 on each movement.'}};
+const KBXORDER=['pd','gimli','zeus','achilles','athena','hercules','mick','flow','rogan'];
+/* Turn a complex into a normal session object the player can run. */
+function kbxSession(k){const c=KBX[k];if(!c)return null;
+  return {id:'kbx_'+k,n:c.n+' Complex',w:'home',mins:Math.max(12,Math.round(c.rounds*(c.seq.length*22+c.rest)/60)),
+    kbx:1,note:c.note,
+    ex:c.seq.map(s=>({n:s[0],s:c.rounds,r:String(s[1]),rest:0,inx:1}))
+      .concat([])};
+}
+
+/* ---- MARTIAL ARTS SESSIONS. One for each of the three styles. ---- */
+const XTRA={
+box:{id:'x_box',n:'Boxing · bag',w:'home',mins:32,style:'box',
+  fin:'Jump rope · 3×3 min',
+  note:'Wrap or glove up. 3 minute rounds, 1 minute rest — use the interval timer, preset is in Tools.',
+  ex:[{n:'Shadow boxing',s:3,r:'3 min rounds',rest:60},
+    {n:'Bag work — boxing',s:6,r:'3 min rounds',rest:60},
+    {n:'Slip & roll drill',s:3,r:'2 min',rest:45},
+    {n:'Jump rope',s:3,r:'3 min',rest:45}]},
+kick:{id:'x_kick',n:'Kickboxing · bag',w:'home',mins:36,style:'kick',
+  fin:'Teeps · 50 per leg, slow and correct',
+  note:'Hands never drop when you kick. Shin conditioning comes from volume over months, not from one brutal session.',
+  ex:[{n:'Shadow boxing',s:2,r:'3 min rounds',rest:45},
+    {n:'Round kick',s:4,r:'20 per side',rest:60},
+    {n:'Bag work — kickboxing',s:6,r:'3 min rounds',rest:60},
+    {n:'Teep / push kick',s:3,r:'15 per side',rest:45},
+    {n:'Jump rope',s:3,r:'3 min',rest:45}]},
+muay:{id:'x_muay',n:'Muay Thai · bag',w:'home',mins:40,style:'muay',
+  fin:'Clinch knees · 3×1 min unbroken',
+  note:'Eight limbs. Kick through the bag. If your shins are sore into the next session, cut the volume — you cannot train hurt.',
+  ex:[{n:'Shadow boxing',s:2,r:'3 min rounds',rest:45},
+    {n:'Teep / push kick',s:3,r:'15 per side',rest:45},
+    {n:'Round kick',s:4,r:'20 per side',rest:60},
+    {n:'Knee strike',s:3,r:'20 per side',rest:45},
+    {n:'Elbow strike',s:3,r:'20 per side',rest:45},
+    {n:'Bag work — Muay Thai',s:6,r:'3 min rounds',rest:60},
+    {n:'Bag clinch knees',s:3,r:'1 min',rest:60}]}};
+const XTRAORDER=['box','kick','muay'];
+
+/* ---- P10 · JUSTIN KING FUNCTIONAL HYPERTROPHY ----
+   Justin King is the strength & performance coach Chris Bumstead brought in for
+   the 2024 Olympia and leaned on through his retirement / "Jacklete" phase. His
+   background is NFL/MLB/NHL/UFC athlete prep, not stage bodybuilding, and the
+   published method is consistent on four points: (1) pair strength work and
+   volume work in the same week because the combination drives more muscle damage
+   and therefore more hypertrophy, (2) eccentrics are the fastest route to
+   strength, and strength is the foundation hypertrophy is built on, (3) train
+   patterns and athletic qualities, not just muscles, and (4) technique and
+   position before load.
+
+   What follows is JHFP's interpretation of that published philosophy for Juan's
+   equipment and restrictions — it is NOT a transcription of a paid STNDRD
+   programme. Each day opens with a heavy, low-rep strength lift on a long rest,
+   then a loaded eccentric, then hypertrophy volume, then an athletic finisher. */
+P.p10={id:'p10',name:'Justin King Functional Hypertrophy',sub:'Gym · strength and size in the same week, the Jacklete way',
+weeks:8,where:'Gym',bias:'Functional hypertrophy',days:5,fst:false,
+why:'Justin King — the performance coach behind Chris Bumstead\'s Olympia prep and his post-retirement Jacklete phase — builds athletes, not just physiques. The method is strength work and volume work inside the same week rather than in separate blocks, because the combination causes more muscle damage than either alone. Eccentrics carry the strength; the volume carries the size; a short athletic finisher keeps you able to actually use it. Every day runs the same four-part shape: heavy primary on a long rest, loaded eccentric, hypertrophy volume, athletic finisher. This is the programme to run when you want to look like a bodybuilder and still move like an athlete.',
+blocks:[{f:1,t:2,type:'Position & base',mod:0,note:'Technique before load. Leave three reps in the tank on everything — you are earning the right to go heavy in week 3.'},
+{f:3,t:5,type:'Strength emphasis',mod:0,note:'Primaries get heavy — 3-5 reps, full rest, nothing grinding. Eccentrics go to 5 seconds. Volume work stays honest.'},
+{f:6,t:7,type:'Hypertrophy emphasis',mod:1,note:'Primaries hold, volume climbs. Last set of each hypertrophy movement to failure. This is the week the size shows up.'},
+{f:8,t:8,type:'Deload & retest',mod:-1,note:'Two-thirds of the work. Retest the primary lifts at the end of the week and log the PBs.'}],
+schedule:['A','B','C','D','E','sport','rest'],
+sessions:{
+A:{n:'Lower · squat strength',w:'gym',mins:58,fin:'Sled push · 6×20m heavy, walk back',ex:[
+{n:'Back squat',s:5,r:'3-5',rest:180},
+{n:'Front squat',s:3,r:'6-8',t:'5s ecc',rest:120},
+{n:'Bulgarian split squat',s:3,r:'10-12 per side',t:'Deep ROM',rest:90},
+{n:'Leg press',s:3,r:'12-15',rest:90},
+{n:'Lying leg curl',s:3,r:'12-15',t:'3s ecc',rest:60},
+{n:'Standing calf raise',s:4,r:'15-20',t:'Iso hold',rest:45}]},
+B:{n:'Upper · press strength',w:'gym',mins:56,fin:'Assault bike · 8×20s hard / 40s easy',ex:[
+{n:'Flat barbell bench press',s:5,r:'3-5',rest:180},
+{n:'Incline dumbbell press',s:4,r:'8-10',t:'5s ecc',rest:120},
+{n:'Barbell overhead press',s:4,r:'6-8',rest:105},
+{n:'Weighted dip',s:3,r:'8-10',rest:90},
+{n:'Cable lateral raise',s:4,r:'15-20',t:'TUT',rest:45},
+{n:'Rope tricep extension',s:3,r:'12-15',rest:60}]},
+C:{n:'Posterior · hinge strength',w:'gym',mins:56,fin:'Sled pull · 6×20m backwards',ex:[
+{n:'Deadlift',s:5,r:'3-5',rest:180},
+{n:'Romanian deadlift',s:4,r:'8-10',t:'5s ecc',rest:120},
+{n:'Barbell bent-over row',s:4,r:'8-10',rest:105},
+{n:'Pull-up',s:3,r:'AMRAP minus 2',rest:105},
+{n:'Cable row',s:3,r:'12-15',t:'Iso hold',rest:75},
+{n:'Ab wheel',s:3,r:'10-12',rest:60}]},
+D:{n:'Athletic · power & carry',w:'gym',mins:48,fin:'Hill sprints · 8×60m, walk down',ex:[
+{n:'KB two-arm swing',s:5,r:'10',rest:90},
+{n:'Box jump',s:3,r:'3',rest:90},
+{n:'Med ball rotational throw',s:4,r:'6 per side',rest:75},
+{n:'KB front rack lunge',s:3,r:'10 per side',rest:75},
+{n:'Farmer carry',s:4,r:'40m heavy',rest:75},
+{n:'Hanging leg raise',s:3,r:'12-15',t:'TUT',rest:60}]},
+E:{n:'Upper · volume & arms',w:'gym',mins:52,fin:'Rower · 5×250m hard',ex:[
+{n:'Incline barbell bench press',s:4,r:'8-10',rest:105},
+{n:'Lat pulldown',s:4,r:'10-12',t:'3s ecc',rest:90},
+{n:'Chest-supported row',s:3,r:'12-15',rest:75},
+{n:'Lateral raise',s:4,r:'15-20',t:'Drop set',rest:45},
+{n:'Preacher curl',s:4,r:'10-12',t:'3s ecc',rest:60},
+{n:'Close-grip bench press',s:4,r:'10-12',rest:75},
+{n:'Face pull',s:3,r:'20',t:'Iso hold',rest:45}]}}};
+PORDER.push('p10');
+
+/* ---- REST PERIOD REVISION (v4) ----
+   Juan asked for 30 seconds off every prescribed rest, across the board. The
+   prescriptions were written as ceilings for a first week and were leaving him
+   standing around. A 45s floor is kept deliberately: below that a heavy set of
+   3-5 stops being a strength set and becomes conditioning, which is not what the
+   primaries are there for. Anything already at or under the floor is left alone,
+   and rest:0 (supersets, cardio, unbroken complexes) stays 0.
+   The "Done resting" button now logs ACTUAL rest, so these numbers are a
+   guideline he can beat, not a rule he has to obey. */
+const REST_CUT=30, REST_FLOOR=45;
+function cutRest(){
+  let n=0;
+  /* Guard: this must only ever apply ONCE. Without the flag, any second call
+     (a re-eval in the test harness, a future hot reload) shaves another 30s off
+     every prescription and quietly turns strength rests into conditioning. */
+  if(P.__restcut)return 0;
+  /* non-enumerable so it never shows up in a `for..in` over the programmes */
+  Object.defineProperty(P,'__restcut',{value:1,enumerable:false,writable:true});
+  for(const pk in P){const p=P[pk];if(!p||!p.sessions)continue;
+    for(const sk in p.sessions){const s=p.sessions[sk];if(!s||!s.ex)continue;
+      s.ex.forEach(e=>{
+        if(!e.rest||e.rest<=0)return;                 // supersets and cardio stay 0
+        if(e.rest<=REST_FLOOR)return;                 // already short enough
+        const nw=Math.max(REST_FLOOR,e.rest-REST_CUT);
+        if(nw!==e.rest){e.rest=nw;n++}});}}
+  for(const xk in XTRA){XTRA[xk].ex.forEach(e=>{
+    if(e.rest>REST_FLOOR)e.rest=Math.max(REST_FLOOR,e.rest-REST_CUT)})}
+  return n;
+}
+const REST_CUT_COUNT=cutRest();

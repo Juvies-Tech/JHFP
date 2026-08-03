@@ -1,9 +1,12 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
 /* Bump this version string on every release — it is what triggers the
-   auto-update on Juan's phone. v3: option-B kettlebell icon, merged ember/glacier
-   theme, line-art anatomy heat map, cardio workouts, calories and effort,
-   interval timer and stopwatch. */
-const C = 'jhfp-v3';
+   auto-update on Juan's phone. v4: recentred + enlarged kettlebell icon,
+   bodybuilder-proportioned anatomy chart, rest "Done" button that logs real
+   rest, in-session 3-dot exercise menu, workout history + retro logging,
+   1kg = bodyweight code, avg heart rate, progress photos, local member
+   profiles, kettlebell complexes, striking sessions, the Justin King
+   functional hypertrophy programme, and 30s off every prescribed rest. */
+const C = 'jhfp-v4';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {

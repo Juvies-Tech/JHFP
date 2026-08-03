@@ -108,7 +108,32 @@ stroke-linecap:round;stroke-linejoin:round}
 .exn{font-size:16px;font-weight:600;line-height:1.25}
 .exm{font-size:12px;color:var(--tx3);margin-top:3px}
 .exb{padding:0 14px 12px;border-top:1px solid var(--bd);margin-top:2px;padding-top:10px}
-.st{display:grid;grid-template-columns:26px 1fr 1fr 46px 34px;gap:6px;align-items:center;margin-bottom:6px}
+.st{display:grid;grid-template-columns:22px 1fr 1fr 42px 44px 30px;gap:5px;align-items:center;margin-bottom:6px}
+/* a set logged at bodyweight reads BW, not 1kg */
+.st input.bw{color:var(--grn);font-weight:700}
+/* rest actually taken, sitting next to the completion tick */
+.rsc{font-size:11px;font-weight:700;color:var(--ice);text-align:center;font-variant-numeric:tabular-nums}
+.ex.skip{opacity:.5}
+.ex.skip .exn{text-decoration:line-through}
+.kebab{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
+color:var(--tx3);background:var(--s2);border:1px solid var(--bd);flex:0 0 30px}
+.kebab:active{background:var(--s3)}
+.mi{display:flex;align-items:center;gap:12px;padding:13px 4px;border-bottom:1px solid var(--bd);
+font-size:15px;width:100%;text-align:left;color:var(--tx)}
+.mi:last-child{border-bottom:none}
+.mi svg{width:18px;height:18px;stroke:var(--tx3);fill:none;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round;flex:0 0 18px}
+.mi.bad{color:var(--bad)} .mi.bad svg{stroke:var(--bad)}
+/* progress photos */
+.pgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.ph{position:relative;border-radius:10px;overflow:hidden;background:var(--s2);aspect-ratio:3/4}
+.ph img{width:100%;height:100%;object-fit:cover;display:block}
+.ph .cap{position:absolute;left:0;right:0;bottom:0;padding:4px 6px;font-size:10px;font-weight:600;
+background:linear-gradient(transparent,rgba(0,0,0,.85));color:#fff}
+.ph .x{position:absolute;top:4px;right:4px;width:22px;height:22px;border-radius:11px;
+background:rgba(0,0,0,.6);color:#fff;font-size:13px;display:flex;align-items:center;justify-content:center}
+/* the quote block */
+.quote{font-size:15px;line-height:1.5;font-style:italic;color:var(--tx2)}
+.quote b{font-style:normal;color:var(--acc2)}
 .st>span:first-child{font-size:12px;color:var(--tx3);font-weight:600}
 .st input{padding:9px 8px;text-align:center;font-size:15px;font-weight:600}
 .st .u{font-size:10px;color:var(--tx3);text-align:center}
@@ -147,6 +172,9 @@ padding:18px 16px calc(24px + var(--sf));border-top:1px solid var(--bd);animatio
 color:var(--bg);border-radius:12px;padding:11px 15px;display:none;z-index:60;
 align-items:center;justify-content:space-between;font-weight:700;max-width:616px;margin:0 auto}
 .timer.on{display:flex}
+/* once the prescribed rest is used up the bar keeps counting UP rather than
+   disappearing, so "Done" still records an honest number */
+.timer.over{background:var(--amb)}
 .hm{display:grid;grid-template-columns:repeat(auto-fit,minmax(88px,1fr));gap:7px}
 .hmc{background:var(--s2);border:1px solid var(--bd);border-radius:9px;padding:9px 10px}
 .hmc .n{font-size:12px;color:var(--tx2);margin-bottom:5px}
@@ -196,9 +224,11 @@ padding:11px 13px;font-size:13px;color:var(--tx2);line-height:1.5;margin-bottom:
 
 <div class="timer" id="timer">
   <span id="tmt" class="mono">Rest 90</span>
-  <span class="row" style="gap:14px">
+  <span class="row" style="gap:13px">
     <button onclick="tAdd(30)" style="color:inherit;font-weight:700">+30</button>
-    <button onclick="tStop()" style="color:inherit;font-weight:700">Skip</button>
+    <button onclick="tStop()" style="color:inherit;font-weight:700;opacity:.75">Skip</button>
+    <button onclick="tDone()" style="color:inherit;font-weight:800;background:rgba(0,0,0,.22);
+      padding:5px 13px;border-radius:8px">Done</button>
   </span>
 </div>
 
@@ -224,13 +254,23 @@ padding:11px 13px;font-size:13px;color:var(--tx2);line-height:1.5;margin-bottom:
    Built for Juan "Juvies" Lindeque. Single-file PWA, data in localStorage.
    ======================================================================== */
 
-const K='jhfp_v1';
+/* ---- WHICH PROFILE ARE WE? ----
+   Multiple members can each keep their own log on this phone. The profile
+   INDEX lives under 'jhfp_profiles'; each profile's data lives under its own
+   key. Juan is 'juan' and deliberately keeps the ORIGINAL 'jhfp_v1' key, so
+   upgrading to v4 does not orphan a single day of his existing history. */
+function curPid(){
+  try{const s=JSON.parse(localStorage.getItem('jhfp_profiles'));
+    if(s&&s.cur)return s.cur}catch(e){}
+  return 'juan';
+}
+const K=(function(id){return id==='juan'?'jhfp_v1':'jhfp_v1__'+id})(curPid());
 const DEF={
   settings:{name:'Juvies',age:22,height:178,weight:84,
-    kcal:3500,protein:210,fat:295,bareMode:false,restDefault:90},
+    kcal:3500,protein:210,fat:295,bareMode:false,restDefault:90,screenLock:false},
   active:{id:'p4',start:todayISO(),week:1},
   logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[],
-  custom:{}, mine:[]
+  custom:{}, mine:[], photos:[]
 };
 let D=load();
 function todayISO(d){d=d||new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
