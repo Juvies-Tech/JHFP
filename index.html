@@ -118,8 +118,11 @@ stroke-linecap:round;stroke-linejoin:round}
 .st input.bw{color:var(--grn);font-weight:700}
 /* rest actually taken, sitting next to the completion tick */
 .rsc{font-size:11px;font-weight:700;color:var(--ice);text-align:center;font-variant-numeric:tabular-nums}
-.ex.skip{opacity:.5}
-.ex.skip .exn{text-decoration:line-through}
+.ex.skip{opacity:.45;border-color:var(--bd)}
+.ex.skip .exn{text-decoration:line-through;text-decoration-thickness:2px;color:var(--tx3)}
+.ex.skip .exm{text-decoration:line-through}
+/* a removed exercise is locked: nothing inside it can be typed into or ticked */
+.ex.skip .exb input,.ex.skip .exb .tick{pointer-events:none;opacity:.4}
 .kebab{width:30px;height:30px;border-radius:8px;display:flex;align-items:center;justify-content:center;
 color:var(--tx3);background:var(--s2);border:1px solid var(--bd);flex:0 0 30px}
 .kebab:active{background:var(--s3)}

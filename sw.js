@@ -1,14 +1,14 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
 /* Bump this version string on every release — it is what triggers the
-   auto-update on Juan's phone. BETA 1.0: anatomy chart rebuilt from muscle
-   blocks with the back split into lats / rhomboids / erectors and tap-to-identify;
-   MULTIPLE WORKOUTS PER DAY (a day is now an array of sessions, so a second
-   workout no longer wipes the first); training streak that bridges programmed
-   rest days; 1=BW now shows live in Train; Calisthenics workouts, corrected KB
-   complexes, Leopard/Orca flows and two EMOMs from the Hard to Kill note;
-   Zeus/Achilles/Hercules as benchmarks; session duration and start time;
-   bigger, higher kettlebell icon. */
-const C = 'jhfp-beta-1.0';
+   auto-update on Juan's phone. BETA 1.2: the 3-dot exercise menu actually works
+   — the Train view now renders from the LOG rather than the programme, so the
+   loop index IS the log index. Move physically moves the card, Remove strikes it
+   through and locks its inputs, and removing an exercise no longer shifts the
+   one below it (which was logging sets against the wrong exercise). Swap adopts
+   the new movement's own rep range and rest. Typing 1 turns into BW on the spot.
+   Back is one whole region again in Progress and on the diagram. New icon built
+   from Juan's own kettlebell artwork, ember, filling the canvas. */
+const C = 'jhfp-beta-1.2';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {

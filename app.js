@@ -201,58 +201,17 @@ function volState(v,m){return volState2(v,LAND[m])}
    Health/JHFP-build/anat_v5.py. Retuning is editing numbers, not beziers. */
 const AFILL=["M100,8 C112,8 119,19 119,34 C119,49 112,59 100,59 C88,59 81,49 81,34 C81,19 88,8 100,8 Z","M85.0,50.0C82.7,51.7 85.7,57.0 86.0,60.0C86.3,63.0 84.7,66.7 87.0,68.0C89.3,69.3 97.8,69.3 100.0,68.0C102.2,66.7 100.0,63.0 100.0,60.0C100.0,57.0 102.5,51.7 100.0,50.0C97.5,48.3 87.3,48.3 85.0,50.0Z","M70.0,258.0C67.3,260.0 68.0,266.0 68.0,270.0C68.0,274.0 69.0,278.7 70.0,282.0C71.0,285.3 72.0,288.7 74.0,290.0C76.0,291.3 80.3,291.3 82.0,290.0C83.7,288.7 83.5,285.3 84.0,282.0C84.5,278.7 85.0,274.0 85.0,270.0C85.0,266.0 86.5,260.0 84.0,258.0C81.5,256.0 72.7,256.0 70.0,258.0Z","M81.0,320.0C79.3,321.7 81.8,327.0 82.0,330.0C82.2,333.0 80.3,336.7 82.0,338.0C83.7,339.3 90.3,339.3 92.0,338.0C93.7,336.7 92.0,333.0 92.0,330.0C92.0,327.0 93.8,321.7 92.0,320.0C90.2,318.3 82.7,318.3 81.0,320.0Z","M85.0,400.0C83.7,402.0 85.7,408.7 86.0,412.0C86.3,415.3 85.7,418.7 87.0,420.0C88.3,421.3 92.7,421.3 94.0,420.0C95.3,418.7 95.0,415.3 95.0,412.0C95.0,408.7 95.7,402.0 94.0,400.0C92.3,398.0 86.3,398.0 85.0,400.0Z"];
 const AF={traps:["M70.0,62.0C67.3,63.3 69.7,67.7 70.0,70.0C70.3,72.3 69.3,75.0 72.0,76.0C74.7,77.0 83.7,77.0 86.0,76.0C88.3,75.0 86.0,72.3 86.0,70.0C86.0,67.7 88.7,63.3 86.0,62.0C83.3,60.7 72.7,60.7 70.0,62.0Z"],delts:["M56.0,64.0C51.7,66.0 47.0,71.7 44.0,76.0C41.0,80.3 39.0,85.3 38.0,90.0C37.0,94.7 37.2,99.7 38.0,104.0C38.8,108.3 39.0,114.0 43.0,116.0C47.0,118.0 58.8,118.0 62.0,116.0C65.2,114.0 62.0,108.3 62.0,104.0C62.0,99.7 61.7,94.7 62.0,90.0C62.3,85.3 62.7,80.3 64.0,76.0C65.3,71.7 71.3,66.0 70.0,64.0C68.7,62.0 60.3,62.0 56.0,64.0Z"],chest:["M64.0,78.0C58.3,80.3 63.8,87.3 64.0,92.0C64.2,96.7 64.2,101.7 65.0,106.0C65.8,110.3 67.5,114.7 69.0,118.0C70.5,121.3 69.2,124.7 74.0,126.0C78.8,127.3 94.0,127.3 98.0,126.0C102.0,124.7 98.0,121.3 98.0,118.0C98.0,114.7 98.0,110.3 98.0,106.0C98.0,101.7 98.0,96.7 98.0,92.0C98.0,87.3 103.7,80.3 98.0,78.0C92.3,75.7 69.7,75.7 64.0,78.0Z"],biceps:["M43.0,122.0C40.2,124.7 44.2,132.7 45.0,138.0C45.8,143.3 47.0,148.7 48.0,154.0C49.0,159.3 50.0,165.7 51.0,170.0C52.0,174.3 52.5,178.3 54.0,180.0C55.5,181.7 59.0,181.7 60.0,180.0C61.0,178.3 60.0,174.3 60.0,170.0C60.0,165.7 59.8,159.3 60.0,154.0C60.2,148.7 60.7,143.3 61.0,138.0C61.3,132.7 65.0,124.7 62.0,122.0C59.0,119.3 45.8,119.3 43.0,122.0Z"],forearms:["M53.0,186.0C51.0,188.7 51.2,196.7 51.0,202.0C50.8,207.3 51.2,212.3 52.0,218.0C52.8,223.7 54.5,230.3 56.0,236.0C57.5,241.7 59.5,249.3 61.0,252.0C62.5,254.7 64.7,254.7 65.0,252.0C65.3,249.3 63.2,241.7 63.0,236.0C62.8,230.3 63.8,223.7 64.0,218.0C64.2,212.3 64.2,207.3 64.0,202.0C63.8,196.7 64.8,188.7 63.0,186.0C61.2,183.3 55.0,183.3 53.0,186.0Z"],core:["M75.0,130.0C71.3,133.0 75.7,142.0 76.0,148.0C76.3,154.0 76.7,160.3 77.0,166.0C77.3,171.7 78.2,177.0 78.0,182.0C77.8,187.0 72.7,193.7 76.0,196.0C79.3,198.3 94.3,198.3 98.0,196.0C101.7,193.7 98.0,187.0 98.0,182.0C98.0,177.0 98.0,171.7 98.0,166.0C98.0,160.3 98.0,154.0 98.0,148.0C98.0,142.0 101.8,133.0 98.0,130.0C94.2,127.0 78.7,127.0 75.0,130.0Z"],quads:["M69.0,204.0C64.0,207.3 67.2,217.0 67.0,224.0C66.8,231.0 67.3,238.3 68.0,246.0C68.7,253.7 69.8,262.0 71.0,270.0C72.2,278.0 73.5,286.7 75.0,294.0C76.5,301.3 77.0,310.7 80.0,314.0C83.0,317.3 90.7,317.3 93.0,314.0C95.3,310.7 93.7,301.3 94.0,294.0C94.3,286.7 94.8,278.0 95.0,270.0C95.2,262.0 94.8,253.7 95.0,246.0C95.2,238.3 95.7,231.0 96.0,224.0C96.3,217.0 101.5,207.3 97.0,204.0C92.5,200.7 74.0,200.7 69.0,204.0Z"],calves:["M78.0,342.0C75.0,344.7 76.2,352.7 76.0,358.0C75.8,363.3 76.2,369.0 77.0,374.0C77.8,379.0 79.7,384.0 81.0,388.0C82.3,392.0 82.8,396.3 85.0,398.0C87.2,399.7 92.5,399.7 94.0,398.0C95.5,396.3 94.0,392.0 94.0,388.0C94.0,384.0 94.0,379.0 94.0,374.0C94.0,369.0 94.0,363.3 94.0,358.0C94.0,352.7 96.7,344.7 94.0,342.0C91.3,339.3 81.0,339.3 78.0,342.0Z"]};
-const AB={traps:["M74.0,62.0C69.2,64.0 69.7,70.0 69.0,74.0C68.3,78.0 69.3,83.0 70.0,86.0C70.7,89.0 68.3,91.0 73.0,92.0C77.7,93.0 93.8,93.0 98.0,92.0C102.2,91.0 98.0,89.0 98.0,86.0C98.0,83.0 98.0,78.0 98.0,74.0C98.0,70.0 102.0,64.0 98.0,62.0C94.0,60.0 78.8,60.0 74.0,62.0Z"],delts:["M56.0,64.0C51.7,66.0 47.0,71.7 44.0,76.0C41.0,80.3 39.0,85.3 38.0,90.0C37.0,94.7 37.2,99.7 38.0,104.0C38.8,108.3 39.0,114.0 43.0,116.0C47.0,118.0 58.8,118.0 62.0,116.0C65.2,114.0 62.0,108.3 62.0,104.0C62.0,99.7 61.7,94.7 62.0,90.0C62.3,85.3 62.7,80.3 64.0,76.0C65.3,71.7 71.3,66.0 70.0,64.0C68.7,62.0 60.3,62.0 56.0,64.0Z"],lats:["M63.0,94.0C60.0,96.7 61.8,104.3 62.0,110.0C62.2,115.7 62.7,121.7 64.0,128.0C65.3,134.3 68.0,141.3 70.0,148.0C72.0,154.7 73.5,164.7 76.0,168.0C78.5,171.3 83.8,171.3 85.0,168.0C86.2,164.7 83.5,154.7 83.0,148.0C82.5,141.3 82.3,134.3 82.0,128.0C81.7,121.7 81.3,115.7 81.0,110.0C80.7,104.3 83.0,96.7 80.0,94.0C77.0,91.3 66.0,91.3 63.0,94.0Z"],rhomboids:["M82.0,94.0C79.2,96.3 81.0,103.3 81.0,108.0C81.0,112.7 79.2,119.7 82.0,122.0C84.8,124.3 95.3,124.3 98.0,122.0C100.7,119.7 98.0,112.7 98.0,108.0C98.0,103.3 100.7,96.3 98.0,94.0C95.3,91.7 84.8,91.7 82.0,94.0Z"],erectors:["M83.0,126.0C80.7,129.7 83.7,140.7 84.0,148.0C84.3,155.3 85.0,162.7 85.0,170.0C85.0,177.3 81.8,188.3 84.0,192.0C86.2,195.7 95.7,195.7 98.0,192.0C100.3,188.3 98.0,177.3 98.0,170.0C98.0,162.7 98.0,155.3 98.0,148.0C98.0,140.7 100.5,129.7 98.0,126.0C95.5,122.3 85.3,122.3 83.0,126.0Z"],triceps:["M43.0,122.0C40.2,124.7 44.2,132.7 45.0,138.0C45.8,143.3 47.0,148.7 48.0,154.0C49.0,159.3 50.0,165.7 51.0,170.0C52.0,174.3 52.5,178.3 54.0,180.0C55.5,181.7 59.0,181.7 60.0,180.0C61.0,178.3 60.0,174.3 60.0,170.0C60.0,165.7 59.8,159.3 60.0,154.0C60.2,148.7 60.7,143.3 61.0,138.0C61.3,132.7 65.0,124.7 62.0,122.0C59.0,119.3 45.8,119.3 43.0,122.0Z"],forearms:["M53.0,186.0C51.0,188.7 51.2,196.7 51.0,202.0C50.8,207.3 51.2,212.3 52.0,218.0C52.8,223.7 54.5,230.3 56.0,236.0C57.5,241.7 59.5,249.3 61.0,252.0C62.5,254.7 64.7,254.7 65.0,252.0C65.3,249.3 63.2,241.7 63.0,236.0C62.8,230.3 63.8,223.7 64.0,218.0C64.2,212.3 64.2,207.3 64.0,202.0C63.8,196.7 64.8,188.7 63.0,186.0C61.2,183.3 55.0,183.3 53.0,186.0Z"],glutes:["M70.0,200.0C64.8,202.0 67.5,208.0 67.0,212.0C66.5,216.0 66.5,220.3 67.0,224.0C67.5,227.7 65.2,232.3 70.0,234.0C74.8,235.7 91.5,235.7 96.0,234.0C100.5,232.3 96.7,227.7 97.0,224.0C97.3,220.3 97.8,216.0 98.0,212.0C98.2,208.0 102.7,202.0 98.0,200.0C93.3,198.0 75.2,198.0 70.0,200.0Z"],hams:["M69.0,240.0C64.5,243.3 68.7,253.3 69.0,260.0C69.3,266.7 70.0,273.3 71.0,280.0C72.0,286.7 73.5,294.3 75.0,300.0C76.5,305.7 77.0,311.7 80.0,314.0C83.0,316.3 90.7,316.3 93.0,314.0C95.3,311.7 93.7,305.7 94.0,300.0C94.3,294.3 94.8,286.7 95.0,280.0C95.2,273.3 94.8,266.7 95.0,260.0C95.2,253.3 100.3,243.3 96.0,240.0C91.7,236.7 73.5,236.7 69.0,240.0Z"],calves:["M78.0,342.0C75.0,344.7 76.2,352.7 76.0,358.0C75.8,363.3 76.2,369.0 77.0,374.0C77.8,379.0 79.7,384.0 81.0,388.0C82.3,392.0 82.8,396.3 85.0,398.0C87.2,399.7 92.5,399.7 94.0,398.0C95.5,396.3 94.0,392.0 94.0,388.0C94.0,384.0 94.0,379.0 94.0,374.0C94.0,369.0 94.0,363.3 94.0,358.0C94.0,352.7 96.7,344.7 94.0,342.0C91.3,339.3 81.0,339.3 78.0,342.0Z"]};
-const ALAB={"F": {"traps": (64, "R"), "delts": (94, "L"), "chest": (100, "R"), "biceps": (150, "L"), "forearms": (214, "L"), "core": (166, "R"), "quads": (258, "R"), "calves": (368, "R")}, "B": {"traps": (72, "R"), "delts": (96, "L"), "rhomboids": (110, "R"), "lats": (140, "R"), "erectors": (186, "R"), "triceps": (152, "L"), "forearms": (222, "L"), "glutes": (216, "R"), "hams": (274, "R"), "calves": (368, "R")}};
+const AB={traps:["M74.0,62.0C69.2,64.0 69.7,70.0 69.0,74.0C68.3,78.0 69.3,83.0 70.0,86.0C70.7,89.0 68.3,91.0 73.0,92.0C77.7,93.0 93.8,93.0 98.0,92.0C102.2,91.0 98.0,89.0 98.0,86.0C98.0,83.0 98.0,78.0 98.0,74.0C98.0,70.0 102.0,64.0 98.0,62.0C94.0,60.0 78.8,60.0 74.0,62.0Z"],delts:["M56.0,64.0C51.7,66.0 47.0,71.7 44.0,76.0C41.0,80.3 39.0,85.3 38.0,90.0C37.0,94.7 37.2,99.7 38.0,104.0C38.8,108.3 39.0,114.0 43.0,116.0C47.0,118.0 58.8,118.0 62.0,116.0C65.2,114.0 62.0,108.3 62.0,104.0C62.0,99.7 61.7,94.7 62.0,90.0C62.3,85.3 62.7,80.3 64.0,76.0C65.3,71.7 71.3,66.0 70.0,64.0C68.7,62.0 60.3,62.0 56.0,64.0Z"],back:["M63.0,94.0C57.0,97.0 61.8,105.7 62.0,112.0C62.2,118.3 62.8,125.3 64.0,132.0C65.2,138.7 67.3,145.3 69.0,152.0C70.7,158.7 72.7,165.3 74.0,172.0C75.3,178.7 73.0,188.7 77.0,192.0C81.0,195.3 94.5,195.3 98.0,192.0C101.5,188.7 98.0,178.7 98.0,172.0C98.0,165.3 98.0,158.7 98.0,152.0C98.0,145.3 98.0,138.7 98.0,132.0C98.0,125.3 98.0,118.3 98.0,112.0C98.0,105.7 103.8,97.0 98.0,94.0C92.2,91.0 69.0,91.0 63.0,94.0Z"],triceps:["M43.0,122.0C40.2,124.7 44.2,132.7 45.0,138.0C45.8,143.3 47.0,148.7 48.0,154.0C49.0,159.3 50.0,165.7 51.0,170.0C52.0,174.3 52.5,178.3 54.0,180.0C55.5,181.7 59.0,181.7 60.0,180.0C61.0,178.3 60.0,174.3 60.0,170.0C60.0,165.7 59.8,159.3 60.0,154.0C60.2,148.7 60.7,143.3 61.0,138.0C61.3,132.7 65.0,124.7 62.0,122.0C59.0,119.3 45.8,119.3 43.0,122.0Z"],forearms:["M53.0,186.0C51.0,188.7 51.2,196.7 51.0,202.0C50.8,207.3 51.2,212.3 52.0,218.0C52.8,223.7 54.5,230.3 56.0,236.0C57.5,241.7 59.5,249.3 61.0,252.0C62.5,254.7 64.7,254.7 65.0,252.0C65.3,249.3 63.2,241.7 63.0,236.0C62.8,230.3 63.8,223.7 64.0,218.0C64.2,212.3 64.2,207.3 64.0,202.0C63.8,196.7 64.8,188.7 63.0,186.0C61.2,183.3 55.0,183.3 53.0,186.0Z"],glutes:["M70.0,200.0C64.8,202.0 67.5,208.0 67.0,212.0C66.5,216.0 66.5,220.3 67.0,224.0C67.5,227.7 65.2,232.3 70.0,234.0C74.8,235.7 91.5,235.7 96.0,234.0C100.5,232.3 96.7,227.7 97.0,224.0C97.3,220.3 97.8,216.0 98.0,212.0C98.2,208.0 102.7,202.0 98.0,200.0C93.3,198.0 75.2,198.0 70.0,200.0Z"],hams:["M69.0,240.0C64.5,243.3 68.7,253.3 69.0,260.0C69.3,266.7 70.0,273.3 71.0,280.0C72.0,286.7 73.5,294.3 75.0,300.0C76.5,305.7 77.0,311.7 80.0,314.0C83.0,316.3 90.7,316.3 93.0,314.0C95.3,311.7 93.7,305.7 94.0,300.0C94.3,294.3 94.8,286.7 95.0,280.0C95.2,273.3 94.8,266.7 95.0,260.0C95.2,253.3 100.3,243.3 96.0,240.0C91.7,236.7 73.5,236.7 69.0,240.0Z"],calves:["M78.0,342.0C75.0,344.7 76.2,352.7 76.0,358.0C75.8,363.3 76.2,369.0 77.0,374.0C77.8,379.0 79.7,384.0 81.0,388.0C82.3,392.0 82.8,396.3 85.0,398.0C87.2,399.7 92.5,399.7 94.0,398.0C95.5,396.3 94.0,392.0 94.0,388.0C94.0,384.0 94.0,379.0 94.0,374.0C94.0,369.0 94.0,363.3 94.0,358.0C94.0,352.7 96.7,344.7 94.0,342.0C91.3,339.3 81.0,339.3 78.0,342.0Z"]};
+const ALAB={"F": {"traps": (64, "R"), "delts": (94, "L"), "chest": (100, "R"), "biceps": (150, "L"), "forearms": (214, "L"), "core": (166, "R"), "quads": (258, "R"), "calves": (368, "R")}, "B": {"traps": (72, "R"), "delts": (96, "L"), "back": (140, "R"), "triceps": (152, "L"), "forearms": (222, "L"), "glutes": (216, "R"), "hams": (274, "R"), "calves": (368, "R")}};
 
 function amirror(d){return d.replace(/(-?[\d.]+),(-?[\d.]+)/g,
   (m,x,y)=>(200-parseFloat(x)).toFixed(1)+','+(+y).toFixed(1))}
 
-/* ---- BACK SUB-REGIONS ----
-   Juan could only see "two big groups" on the back. It now draws the regions a
-   lifter actually thinks in: upper traps, rhomboids, lats and erectors. The
-   exercise library only tags "back" as a single muscle, so rather than invent
-   per-region tags for ~140 movements, the split is derived from MOVEMENT
-   PATTERN, which is where the emphasis genuinely comes from:
-     vertical pull (pull-up, pulldown, pullover)      -> lats
-     horizontal pull (any row, face pull, rear delt)  -> rhomboids / mid back
-     hinge & extension (deadlift, RDL, good morning,
-       hyperextension, Jefferson curl, back ext)      -> erectors
-   Anything back-ish that matches nothing is split evenly, so no set is lost. */
-const BACKPAT=[
-  ['lats',      /pull-?up|pulldown|pullover|chin-?up|lat |muscle-?up|false grip|hang/i],
-  ['rhomboids', /row|face pull|rear delt|shrug|scap|pull-?apart|reverse fly/i],
-  ['erectors',  /deadlift|romanian|good morning|hyper ?ext|jefferson|back ext|rack pull|swing|clean|snatch|high pull/i]];
-function backRegion(name){
-  for(const [k,re] of BACKPAT)if(re.test(name))return k;
-  return null;
-}
-/* Weighted back sets, split into the three regions. */
-function backSplit(days){
-  const out={lats:0,rhomboids:0,erectors:0};
-  const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
-  eachSession((k,l)=>{
-    if(k<cut)return;
-    (l.ex||[]).forEach(e=>{
-      if(e.skip||e.warm)return;
-      const ms=(EX[e.n]&&EX[e.n].m)||[]; const i=ms.indexOf('back');
-      if(i<0)return;
-      const n=(e.sets||[]).filter(s=>s.done).length; if(!n)return;
-      const w=n*(WT[i]!==undefined?WT[i]:.25);
-      const r=backRegion(e.n);
-      if(r)out[r]+=w; else {out.lats+=w/3;out.rhomboids+=w/3;out.erectors+=w/3}});
-  });
-  Object.keys(out).forEach(k=>out[k]=Math.round(out[k]*10)/10);
-  return out;
-}
-/* Each region is judged against its share of the back MRV, so a lat-only week
-   still reads as "lats in range, erectors under" rather than one flat colour. */
-const BACKSHARE={lats:.45,rhomboids:.35,erectors:.20};
-function subLand(k){const L=LAND.back,s=BACKSHARE[k];
-  return [L[0]*s,L[1]*s,L[2]*s]}
+/* The back is ONE region again. An earlier release split it into lats /
+   rhomboids / erectors derived from movement pattern; Juan found the extra
+   detail unnecessary in Progress, so it is back to the single "back" muscle
+   that the exercise library actually tags. */
 
-/* Shade level 0..4 for a muscle against its own landmarks. Level 0 is now a
-   VISIBLE grey block, not an invisible outline — that was the whole reason the
-   v4 chart was unreadable. */
 function heatLv(v,L){
   L=L||[6,10,20];
   if(!v||v<=0)return 0;
@@ -270,22 +229,17 @@ function heatFill(v,m){return SHADE[heatLv(v,LAND[m])]}
    drawn on the figure, which keeps it clean at phone size. */
 let APICK=null;
 function pickMus(k){APICK=(APICK===k)?null:k;render()}
-function musName(k){return MUSN[k]||{lats:'Lats',rhomboids:'Rhomboids',
-  erectors:'Erectors / lower back'}[k]||k}
-/* Sets and landmark for any region, including the derived back sub-regions. */
-function musVal(k,v,bs){
-  if(k==='lats'||k==='rhomboids'||k==='erectors')return [bs[k]||0,subLand(k)];
-  return [v[k]||0,LAND[k]||[6,10,20]];
-}
+function musName(k){return MUSN[k]||k}
+function musVal(k,v){return [v[k]||0,LAND[k]||[6,10,20]]}
 
-function figure(parts,v,bs,label,side){
+function figure(parts,v,label,side){
   let o='<svg viewBox="0 0 200 442" width="100%" role="img" aria-label="'+label
     +' view muscle map">';
   /* non-muscle filler: head, neck, hands, knees, feet */
   AFILL.forEach(d=>{[d,amirror(d)].forEach(dd=>{
     o+='<path d="'+dd+'" fill="var(--musf)" stroke="var(--bg)" stroke-width="1.6"/>';});});
   for(const m in parts){
-    const mv=musVal(m,v,bs), lv=heatLv(mv[0],mv[1]), sh=SHADE[lv];
+    const mv=musVal(m,v), lv=heatLv(mv[0],mv[1]), sh=SHADE[lv];
     const on=(APICK===m);
     parts[m].forEach(d=>{[d,amirror(d)].forEach(dd=>{
       /* the dark stroke IS the gap between muscles — it is what makes each
@@ -299,8 +253,8 @@ function figure(parts,v,bs,label,side){
     +'fill="var(--tx3)">'+label+'</text>';
   return o+'</svg>';
 }
-function figFront(v,bs){return figure(AF,v,bs||{},'FRONT','F')}
-function figBack(v,bs){return figure(AB,v,bs||{},'BACK','B')}
+function figFront(v){return figure(AF,v,'FRONT','F')}
+function figBack(v){return figure(AB,v,'BACK','B')}
 let HEATDAYS=7;
 function setHeat(d){HEATDAYS=d;render()}
 
@@ -617,9 +571,48 @@ function rTrain(){
          ${esc(sessLabel(l))}${l.done?' ✓':''}</button>`).join('')
       +`<button class="tab" onclick="open_('addsess')" style="color:var(--acc2)">+ Session</button></div>`;
   }
-  const EXS=s.ex.concat(log.extra||[]);   // programme exercises + anything added today
-  EXS.forEach(ex=>{if(!log.ex.find(x=>x.n===ex.n)){
-    log.ex.push({n:ex.n,sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))})}});
+  /* ---- SEED THE LOG, THEN RENDER FROM IT ----
+     THE BUG THIS FIXES. The view used to iterate EXS (the programme's exercise
+     list) while every button — the tick, the kg/reps fields, the 3-dot menu —
+     indexed into log.ex. Those are two different arrays and they drift apart the
+     moment the menu is used:
+       · exMove swapped log.ex but the view still drew EXS, so the card never
+         physically moved;
+       · exDel spliced log.ex, leaving it shorter than EXS, so every index below
+         the removal was off by one and ticking a set logged the exercise ABOVE;
+       · exSwap renamed a log entry, the view's find-by-name returned undefined,
+         and L.sets threw — killing the whole Train render, which is why "the
+         controls don't work".
+     log.ex is now the SINGLE SOURCE OF TRUTH for rendering. The programme only
+     ever seeds it, and the loop index is by definition the log index. */
+  const seed=s.ex.concat(log.extra||[]);
+  /* `seeded` records every programme movement that has ALREADY been put into
+     this log. Without it, seeding by "is this name absent?" silently undoes the
+     menu: swap an exercise out and the next render puts the original straight
+     back as a duplicate, and a deleted exercise reappears. Seeding happens once
+     per movement, per session. */
+  /* A log started before this version has no `seeded` list. Initialise it from
+     whatever is already in the log rather than empty, otherwise the seeder walks
+     the whole programme again and resurrects exercises the user had removed. */
+  if(!log.seeded)log.seeded=log.ex.map(e=>e.n);
+  /* Only seed when the session behind this log actually resolves. sessFor()
+     falls back to today's PROGRAMME slot when it does not — which would pour
+     programme exercises into a retro session, or one whose custom workout has
+     since been deleted. */
+  const resolves=!!sessById(log.sid);
+  seed.forEach(ex=>{
+    if(!resolves)return;
+    if(log.seeded.indexOf(ex.n)>=0)return;      // already seeded — respect the edit
+    log.seeded.push(ex.n);
+    if(log.ex.find(x=>x.n===ex.n))return;
+    log.ex.push({n:ex.n,k:ex.k,r:ex.r,t:ex.t,rest:ex.rest,fst:ex.fst,
+      sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))});
+  });
+  /* Older logs were stored without the display fields — backfill from the
+     programme so a session started on a previous version still renders. */
+  log.ex.forEach(L=>{if(L.r===undefined){const src=seed.find(x=>x.n===L.n)||{};
+    L.k=L.k||src.k;L.r=L.r||src.r||'';L.t=L.t||src.t;
+    L.rest=(L.rest===undefined?src.rest:L.rest);L.fst=L.fst||src.fst;}});
 
   h+=`<div class="card acc">
     <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Either')}</span>
@@ -627,61 +620,79 @@ function rTrain(){
     <div class="mid" style="margin:9px 0 4px">${esc(s.n)}</div>
     <div class="note">${esc(b.note)}</div></div>`;
 
-  EXS.forEach((ex,i)=>{
-    const L=log.ex.find(x=>x.n===ex.n),T=target(ex,b.mod),info=EX[ex.n]||{m:[],c:''};
-    const dn=L.sets.every(x=>x.done);
-    if(isCardio(ex)){
-      const C=CARDIO[ex.k]; L.c=L.c||{};
-      h+=`<div class="ex ${L.c.done?'done':''}">
-        <div class="exh"><div style="flex:1"><div class="exn">${esc(ex.n)}</div>
-          <div class="exm">${esc(C.n)}${ex.r?' \u00b7 '+esc(ex.r):''}</div></div>
-          <span class="pill b">${esc(C.n.split(' ')[0])}</span></div>
-        <div class="exb">
+  log.ex.forEach((L,i)=>{
+    const ex=L, T=target(L,b.mod);
+    if(isCardio(L)){
+      const C=CARDIO[L.k]; L.c=L.c||{};
+      h+=`<div class="ex ${L.c.done?'done':''} ${L.skip?'skip':''}">
+        <div class="exh"><div style="flex:1"><div class="exn">${esc(L.n)}</div>
+          <div class="exm">${esc(C.n)}${L.r?' · '+esc(L.r):''}</div></div>
+          <div class="row" style="gap:8px">
+            <span class="pill b">${esc(C.n.split(' ')[0])}</span>
+            <button class="kebab" onclick="open_('exopt','${i}')" aria-label="More options">
+              <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
+          </div></div>`;
+      if(!L.skip){
+        h+=`<div class="exb">
           <div class="grid3">${C.f.map(f=>`<div><div class="tiny">${f[1]}${f[2]?' '+f[2]:''}</div>
             <input type="text" inputmode="${fKind(f[0])==='int'?'numeric':'decimal'}"
-              placeholder="${fKind(f[0])==='time'?'45:30':fKind(f[0])==='dec'?'5.4':'\u2014'}"
+              placeholder="${fKind(f[0])==='time'?'45:30':fKind(f[0])==='dec'?'5.4':'—'}"
               value="${esc(L.c[f[0]]||'')}"
               onchange="cardioSet(${i},'${f[0]}',this.value)"></div>`).join('')}</div>
-          ${C.f.some(f=>f[0]==='min')?`<div class="jm" style="margin-top:5px">Time takes 45:30 or 45.5 \u2014 either works.</div>`:''}
-          ${C.pace&&fVal('km',L.c.km)&&fVal('min',L.c.min)?`<div class="tgt" style="margin-top:9px">Pace ${pace(fVal('km',L.c.km),fVal('min',L.c.min))}${(fVal('km',L.c.km)>=4.8&&fVal('km',L.c.km)<=5.4)?' \u00b7 this counts as a 5k \u2014 log it under Benchmarks if it is a PB':''}</div>`:''}
+          ${C.f.some(f=>f[0]==='min')?`<div class="jm" style="margin-top:5px">Time takes 45:30 or 45.5 — either works.</div>`:''}
+          ${C.pace&&fVal('km',L.c.km)&&fVal('min',L.c.min)?`<div class="tgt" style="margin-top:9px">Pace ${pace(fVal('km',L.c.km),fVal('min',L.c.min))}</div>`:''}
           <div class="grid3" style="margin-top:9px">
             <div><div class="tiny">Calories</div><input type="text" inputmode="numeric"
-              placeholder="${estKcal(ex.k,fVal('min',L.c.min))||'\u2014'}" value="${esc(L.c.kcal||'')}"
+              placeholder="${estKcal(L.k,fVal('min',L.c.min))||'—'}" value="${esc(L.c.kcal||'')}"
               onchange="cardioSet(${i},'kcal',this.value)"></div>
             <div><div class="tiny">Avg HR</div><input type="text" inputmode="numeric"
               placeholder="bpm" value="${esc(L.c.hr||'')}" onchange="cardioSet(${i},'hr',this.value)"></div>
-            <div><div class="tiny">Effort 1\u201310</div><input type="text" inputmode="numeric"
+            <div><div class="tiny">Effort 1–10</div><input type="text" inputmode="numeric"
               value="${esc(L.c.effort||'')}" onchange="cardioSet(${i},'effort',this.value)"></div></div>
-          <button class="btn ${L.c.done?'':'p'}" style="margin-top:10px" onclick="cardioDone(${i})">${L.c.done?'Logged \u2713':'Log it'}</button>
-        </div></div>`;
+          <button class="btn ${L.c.done?'':'p'}" style="margin-top:10px" onclick="cardioDone(${i})">${L.c.done?'Logged ✓':'Log it'}</button>
+        </div>`;}
+      else h+=`<div class="exb"><div class="jm">Removed from today. Reopen the ⋮ menu to put it back.</div></div>`;
+      h+=`</div>`;
       return;
     }
-    const skipped=L.skip;
-    h+=`<div class="ex ${dn?'done':''} ${skipped?'skip':''}">
+
+    const dn=L.sets.every(x=>x.done);
+    h+=`<div class="ex ${dn?'done':''} ${L.skip?'skip':''}">
       <div class="exh">
-        <div style="flex:1" onclick="tgl(${i})"><div class="exn">${esc(ex.n)}${ex.fst?' <span class="pill a" style="vertical-align:2px">FST-7</span>':''}${skipped?' <span class="pill" style="vertical-align:2px">Skipped</span>':''}</div>
-        <div class="exm">${setsFor(ex,b.mod)} × ${esc(ex.r)}${ex.t?' · '+esc(ex.t):''} · rest ${ex.rest?ex.rest+'s':'none'}</div></div>
+        <div style="flex:1" onclick="tgl(${i})"><div class="exn">${esc(L.n)}${L.fst?' <span class="pill a" style="vertical-align:2px">FST-7</span>':''}${L.sub?' <span class="pill" style="vertical-align:2px">swapped in</span>':''}</div>
+        <div class="exm">${L.sets.length} × ${esc(L.r||'')}${L.t?' · '+esc(L.t):''}${L.rest?' · rest '+L.rest+'s':''}</div></div>
         <div class="row" style="gap:8px">
-          <div class="pill ${dn?'g':''}" onclick="tgl(${i})">${L.sets.filter(x=>x.done).length}/${L.sets.length}</div>
-          <button class="kebab" onclick="open_('exopt','${i}')" aria-label="More options for ${esc(ex.n)}">
+          ${L.skip?'<span class="pill">Removed</span>'
+            :`<div class="pill ${dn?'g':''}" onclick="tgl(${i})">${L.sets.filter(x=>x.done).length}/${L.sets.length}</div>`}
+          <button class="kebab" onclick="open_('exopt','${i}')" aria-label="More options for ${esc(L.n)}">
             <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
-        </div></div>
-      <div class="exb" id="exb${i}" style="display:${dn||skipped?'none':'block'}">
+        </div></div>`;
+
+    /* A REMOVED exercise is closed and locked — no kg, no reps, no tick — until
+       it is reinstated from the menu. Leaving the inputs live was how a cancelled
+       exercise still ended up collecting numbers. */
+    if(L.skip){
+      h+=`<div class="exb"><div class="jm">Removed from today. Open the ⋮ menu to reinstate it.</div>
+        <button class="btn sm gh" style="margin-top:8px" onclick="exSkip(${i})">Reinstate</button></div></div>`;
+      return;
+    }
+
+    h+=`<div class="exb" id="exb${i}" style="display:${dn?'none':'block'}">
         <div class="tgt">${esc(T.txt)}</div>
         <div class="st" style="color:var(--tx3);font-size:11px"><span></span><span class="u">KG</span><span class="u">REPS</span><span class="u">REST</span><span class="u"></span><span class="u"></span></div>`;
     L.sets.forEach((st,j)=>{
       h+=`<div class="st"><span>${j+1}</span>
-        <input type="text" inputmode="decimal" placeholder="—" value="${esc(wDisp(st.w))}" onchange="setV(${i},${j},'w',this.value)"
-          class="${isBW(st.w)?'bw':''}" title="${isBW(st.w)?'Bodyweight — type 1':''}">
+        <input type="text" inputmode="decimal" placeholder="—" value="${esc(wDisp(st.w))}" onchange="setW(${i},${j},this)"
+          class="${isBW(st.w)?'bw':''}" title="Type 1 for bodyweight">
         <input type="text" inputmode="numeric" placeholder="—" value="${esc(st.r)}" onchange="setV(${i},${j},'r',this.value)">
         <span class="rsc" title="Rest actually taken">${st.rs!==undefined?esc(restTxt(st.rs)):''}</span>
-        <button class="tick ${st.done?'on':''}" onclick="setDone(${i},${j},${ex.rest||0})">${CHK}</button>
+        <button class="tick ${st.done?'on':''}" onclick="setDone(${i},${j},${L.rest||0})">${CHK}</button>
         <button class="tick" onclick="delSet(${i},${j})" aria-label="Remove set" style="font-size:18px;line-height:1">−</button></div>`});
-    h+=`<div class="jm" style="margin-top:6px">Enter <b>1</b> as the load for bodyweight — it logs as BW and progresses on reps.</div>
+    h+=`<div class="jm" style="margin-top:6px">Enter <b>1</b> as the load for bodyweight — it shows as BW and progresses on reps.</div>
       <div class="row" style="gap:7px;margin-top:8px;flex-wrap:wrap">
         <button class="btn sm gh" onclick="addSet(${i})">+ Set</button>
-        <button class="btn sm gh" onclick="open_('ex','${encodeURIComponent(ex.n)}')">Cues</button>
-        ${ex.t?`<button class="btn sm gh" onclick="open_('tech','${encodeURIComponent(ex.t)}')">${esc(ex.t)}</button>`:''}
+        <button class="btn sm gh" onclick="open_('ex','${encodeURIComponent(L.n)}')">Cues</button>
+        ${L.t?`<button class="btn sm gh" onclick="open_('tech','${encodeURIComponent(L.t)}')">${esc(L.t)}</button>`:''}
       </div></div></div>`;
   });
 
@@ -714,56 +725,105 @@ function rTrain(){
     </div>`;
   document.getElementById('v-train').innerHTML=h;
 }
-function tgl(i){const e=document.getElementById('exb'+i);e.style.display=e.style.display==='none'?'block':'none'}
+function tgl(i){const e=document.getElementById('exb'+i);
+  if(!e)return;                       // a removed exercise has no body to toggle
+  e.style.display=e.style.display==='none'?'block':'none'}
 /* The weight field DISPLAYS "BW" but STORES the 1 sentinel. Accept either on
    the way in, so re-saving a field that already reads BW does not corrupt it —
    that round-trip is why 1=BW appeared to work in history but not live. */
 function normW(v){const t=String(v==null?'':v).trim();
   if(/^bw$/i.test(t))return '1';
   return t}
-function setV(i,j,f,v){const l=curLog();if(!l)return;
+function setV(i,j,f,v){const l=curLog();if(!l||!l.ex[i]||!l.ex[i].sets[j])return;
   l.ex[i].sets[j][f]=(f==='w')?normW(v):v;save()}
+/* Weight field. Writing the value back into the input immediately is what makes
+   typing 1 turn into BW on the spot — a full re-render would steal focus and
+   fight the on-screen keyboard, so the field is updated in place. */
+function setW(i,j,el){const l=curLog();if(!l||!l.ex[i]||!l.ex[i].sets[j])return;
+  const raw=normW(el.value);
+  l.ex[i].sets[j].w=raw;
+  el.value=wDisp(raw);
+  el.classList.toggle('bw',isBW(raw));
+  save()}
 function cardioSet(i,f,v){const l=curLog();if(!l||!l.ex[i])return;
   l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;save()}
 function cardioDone(i){const l=curLog();if(!l||!l.ex[i])return;
-  const c=l.ex[i].c=l.ex[i].c||{};
+  const e=l.ex[i],c=e.c=e.c||{};
   c.done=!c.done;
-  /* sessFor() is null if the session behind this log no longer resolves */
-  if(c.done&&!c.kcal){const sf=sessFor();
-    const ex=sf?(sf.ex.concat(l.extra||[]))[i]:null;
-    if(ex)c.kcal=estKcal(ex.k,fVal('min',c.min))}
+  /* read the kind off the LOG entry. Indexing the programme list with a log
+     index is precisely the class of bug this release removes. */
+  if(c.done&&!c.kcal)c.kcal=estKcal(e.k,fVal('min',c.min));
   save();rTrain()}
 function setDone(i,j,rest){const l=curLog();if(!l||!l.ex[i])return;
+  if(l.ex[i].skip||!l.ex[i].sets[j])return;    // a removed exercise cannot be logged
   const st=l.ex[i].sets[j];st.done=!st.done;
   if(st.done&&rest)tStart(rest,i,j);save();rTrain()}
 
 /* ---- IN-SESSION EXERCISE OPTIONS (the 3-dot menu) ----
-   Everything here mutates TODAY'S LOG, never the programme definition. The log
-   carries its own `order` and `skip` flags so a reshuffle survives a reload and
-   never leaks into next week's session. */
-function logOrder(){const l=curLog();
-  if(!l.order||l.order.length!==l.ex.length)l.order=l.ex.map((_,i)=>i);
-  return l.order}
-function exMove(i,d){const l=curLog(),o=logOrder(),j=i+d;
-  if(j<0||j>=o.length)return;
-  const t=o[i];o[i]=o[j];o[j]=t;
-  const e=l.ex[i];l.ex[i]=l.ex[j];l.ex[j]=e;
+   Every one of these mutates TODAY'S LOG and nothing else — the programme is
+   never touched, so a reshuffle or a swap does not leak into next week.
+
+   Because the Train view now renders straight from log.ex, the index these
+   receive IS the log index. Previously the view iterated the programme list
+   while these wrote to the log, and the two drifted apart the moment anything
+   here ran — which is why the menu appeared to do nothing, or worse, logged
+   sets against the wrong exercise. */
+function exAt(i){const l=curLog();return (l&&l.ex[i])?l:null}
+/* Physically reorder the exercise. The card visibly moves because the view
+   draws log.ex in order. */
+function exMove(i,d){const l=exAt(i);if(!l)return;
+  const j=i+d;if(j<0||j>=l.ex.length)return;
+  const t=l.ex[i];l.ex[i]=l.ex[j];l.ex[j]=t;
+  delete l.order;TREF=null;          // the resting set has moved — do not write to a stale index
   save();close_();rTrain()}
-function exSkip(i){const l=curLog();l.ex[i].skip=!l.ex[i].skip;
-  /* a skipped exercise contributes no sets, so it drops out of volume automatically */
-  if(l.ex[i].skip)l.ex[i].sets.forEach(s=>s.done=false);
+/* Remove / reinstate. A removed exercise keeps its place in the list but is
+   struck through and LOCKED — no kg, no reps, no tick — and contributes nothing
+   to volume until it is put back. */
+function exSkip(i){const l=exAt(i);if(!l)return;
+  const e=l.ex[i];e.skip=!e.skip;
+  if(e.skip){e.sets.forEach(s=>{s.done=false});
+    if(e.c)e.c.done=false;}          // a removed cardio block banks no calories
   save();close_();rTrain()}
-function exSwap(i,name){if(!name)return;const l=curLog();
-  l.ex[i].n=name;l.ex[i].sets.forEach(s=>{s.w='';s.r='';s.done=false;delete s.rs});
-  l.ex[i].sub=1;save();close_();rTrain()}
-function exSets(i,n){const l=curLog(),s=l.ex[i].sets;n=Math.max(1,Math.min(12,+n||1));
-  while(s.length<n)s.push({w:'',r:'',done:false});
-  while(s.length>n)s.pop();
+/* Find how the programmes actually prescribe a movement, so a swapped-in
+   exercise gets ITS OWN rep range and rest rather than inheriting the ones from
+   the exercise it replaced. EX entries carry only muscles and cues — no rep
+   range — so the prescription has to come from the programme library. */
+function prescriptionFor(name){
+  for(const pk in P){const p=P[pk];if(!p||!p.sessions)continue;
+    for(const sk in p.sessions){
+      const hit=(p.sessions[sk].ex||[]).find(x=>x.n===name);
+      if(hit)return{r:hit.r,rest:hit.rest,t:hit.t,fst:hit.fst};}}
+  for(const ck in CAL){const hit=CAL[ck].ex.find(x=>x.n===name);if(hit)return{r:hit.r,rest:hit.rest};}
+  return{r:'8-12',rest:90};                     // sane default for an unknown movement
+}
+function exSwap(i,name){if(!name)return;const l=exAt(i);if(!l)return;
+  const e=l.ex[i];
+  if(l.ex.some((x,j)=>j!==i&&x.n===name)){
+    alert(name+' is already in this session.');return}
+  const pr=prescriptionFor(name);
+  e.n=name;e.sub=1;
+  e.r=pr.r;e.rest=pr.rest;e.t=pr.t;e.fst=pr.fst;
+  /* a cardio slot swapped for a lift must stop being cardio, or it keeps
+     rendering distance/time and banking the old calories */
+  delete e.k;delete e.c;
+  e.sets.forEach(s=>{s.w='';s.r='';s.done=false;delete s.rs});
   save();close_();rTrain()}
-function exWarm(i){const l=curLog();l.ex[i].warm=!l.ex[i].warm;save();close_();rTrain()}
-function exDel(i){const l=curLog();
-  if(!confirm('Remove this exercise from today\'s session?'))return;
-  l.ex.splice(i,1);delete l.order;save();close_();rTrain()}
+function exSets(i,n){const l=exAt(i);if(!l)return;
+  const st=l.ex[i].sets;n=Math.max(1,Math.min(12,+n||1));
+  while(st.length<n)st.push({w:'',r:'',done:false});
+  while(st.length>n)st.pop();
+  save();close_();rTrain()}
+function exWarm(i){const l=exAt(i);if(!l)return;
+  l.ex[i].warm=!l.ex[i].warm;save();close_();rTrain()}
+/* Hard delete — drops the exercise entirely. Safe now that the view renders
+   from log.ex: the indices below it shift together with the array. */
+function exDel(i){const l=exAt(i);if(!l)return;
+  if(!confirm('Delete this exercise from today\'s session? "Remove" keeps it listed and struck through instead.'))return;
+  l.ex.splice(i,1);delete l.order;TREF=null;
+  /* The name deliberately STAYS in `seeded`: that is what makes the delete
+     stick. Re-adding it later goes through addExToday(), which pushes straight
+     into log.ex and does not consult the seeder at all. */
+  save();close_();rTrain()}
 function addSet(i){const l=curLog();if(!l||!l.ex[i])return;
   l.ex[i].sets.push({w:'',r:'',done:false});save();rTrain()}
 function delSet(i,j){const l=curLog();if(!l||!l.ex[i])return;
@@ -878,7 +938,7 @@ function addFood(n,g){const F=FOOD.find(x=>x.n===n);if(!F||!g)return;
 
 /* ================= PROGRESS ================= */
 function rProg(){
-  const v=volume(HEATDAYS),bs=backSplit(HEATDAYS),p=curP(),w=curWeek();
+  const v=volume(HEATDAYS),p=curP(),w=curWeek();
   let h=`<div class="card"><div class="row sp"><div class="lbl" style="margin:0">${esc(p.name)}</div>
     <span class="pill a">Week ${w} of ${p.weeks}</span></div>
     <div class="bar" style="margin:10px 0 9px"><i style="width:${progPct()}%"></i></div>
@@ -892,10 +952,10 @@ function rProg(){
       <button class="tab ${HEATDAYS===30?'on':''}" onclick="setHeat(30)">30 days</button></div>
     <div class="card" style="padding:10px 8px 4px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-        <div>${figFront(v,bs)}</div><div>${figBack(v,bs)}</div></div>`;
+        <div>${figFront(v)}</div><div>${figBack(v)}</div></div>`;
   /* Caption for the tapped muscle. Labels are not drawn on the figure — that
      keeps it clean at phone size — so this line is how a muscle is identified. */
-  if(APICK){const mv=musVal(APICK,v,bs),st=volState2(mv[0],mv[1]);
+  if(APICK){const mv=musVal(APICK,v),st=volState2(mv[0],mv[1]);
     h+=`<div class="tgt" style="margin:2px 8px 8px">${esc(musName(APICK))} — <b>${mv[0]}</b> sets · ${st[0]}
       <span style="color:var(--tx3)"> · target ${Math.round(mv[1][1])}–${Math.round(mv[1][2])}</span></div>`;}
   else h+=`<div class="jm" style="text-align:center;padding:0 8px 8px">Tap any muscle to name it and see its set count.</div>`;
@@ -904,16 +964,6 @@ function rProg(){
           .map(l=>`<span class="row" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:${l[1]};opacity:${l[2]}"></span><span style="font-size:11px;color:var(--tx3)">${l[0]}</span></span>`).join('')}
       </div></div>
     <div class="note" style="margin-bottom:10px">Each muscle is shaded against its own landmarks, not one shared number — back and core recover from far more volume than biceps or calves.</div>
-    <div class="sec" style="margin:14px 0 8px">Back detail</div>
-    <div class="hm">`;
-  ['lats','rhomboids','erectors'].forEach(m=>{const st=volState2(bs[m]||0,subLand(m));
-    h+=`<div class="hmc" onclick="pickMus('${m}')" style="cursor:pointer${APICK===m?';border-color:var(--acc)':''}">
-      <div class="n">${musName(m)}</div>
-      <div class="row sp"><span class="v mono">${bs[m]||0}</span>
-      <span style="font-size:10px;font-weight:700;color:${st[1]}">${st[0]}</span></div></div>`});
-  h+=`</div>
-    <div class="jm" style="margin:6px 0 10px">Back regions are worked out from the movement — vertical pulls load the lats, rows the rhomboids, hinges the erectors. They add up to your total back volume.</div>
-    <div class="sec" style="margin:14px 0 8px">All muscles</div>
     <div class="hm">`;
   MUS.forEach(m=>{const st=volState(v[m],m);
     h+=`<div class="hmc" onclick="pickMus('${m}')" style="cursor:pointer${APICK===m?';border-color:var(--acc)':''}">
@@ -1271,14 +1321,14 @@ exopt:i=>{i=+i;const l=curLog();if(!l||!l.ex[i])return '<div class="mid">Nothing
   const e=l.ex[i],n=l.ex.length;
   const opts=Object.keys(EX).map(x=>`<option value="${esc(x)}"${x===e.n?' selected':''}>${esc(x)}</option>`).join('');
   return `<div class="mid">${esc(e.n)}</div>
-  <div class="jm" style="margin:5px 0 12px">Changes apply to today's session only — your programme is untouched.</div>
+  <div class="jm" style="margin:5px 0 12px">Changes apply to today's session only — your programme is untouched.${e.skip?' <b>This exercise is currently removed</b> — its inputs are locked until you reinstate it.':''}</div>
   <div class="sec" style="margin-top:6px">Order</div>
   <button class="mi" onclick="exMove(${i},-1)" ${i===0?'disabled style="opacity:.35"':''}>${IC.up}<span style="flex:1">Move up</span></button>
   <button class="mi" onclick="exMove(${i},1)" ${i===n-1?'disabled style="opacity:.35"':''}>${IC.down}<span style="flex:1">Move down</span></button>
   <div class="sec">This exercise</div>
-  <button class="mi" onclick="exSkip(${i})">${IC.skip}<span style="flex:1">${e.skip?'Un-skip':'Skip'} this exercise</span></button>
+  <button class="mi" onclick="exSkip(${i})">${IC.skip}<span style="flex:1">${e.skip?'Reinstate this exercise':'Remove from today'}</span></button>
   <button class="mi" onclick="exWarm(${i})">${IC.flame}<span style="flex:1">${e.warm?'Count as working sets':'Mark as warm-up (not counted)'}</span></button>
-  <div class="mi" style="border-bottom:none;padding-bottom:4px">${IC.plus}<span style="flex:1">Working sets</span>
+  <div class="mi" style="border-bottom:none;padding-bottom:4px${e.skip?';opacity:.4;pointer-events:none':''}">${IC.plus}<span style="flex:1">Working sets</span>
     <span class="row" style="gap:7px">
       <button class="btn sm gh" onclick="exSets(${i},${e.sets.length-1})">−</button>
       <span class="mono" style="min-width:18px;text-align:center;font-weight:700">${e.sets.length}</span>
@@ -1291,7 +1341,7 @@ exopt:i=>{i=+i;const l=curLog();if(!l||!l.ex[i])return '<div class="mid">Nothing
   <button class="mi" onclick="close_();open_('addex')">${IC.plus}<span style="flex:1">Add another exercise to today</span></button>
   <button class="mi" onclick="close_();open_('ex','${encodeURIComponent(e.n)}')">${IC.info}<span style="flex:1">Form cues</span></button>
   <button class="mi" onclick="close_();open_('timer')">${IC.clock}<span style="flex:1">Interval timer</span></button>
-  <button class="mi bad" onclick="exDel(${i})">${IC.trash}<span style="flex:1">Remove from today's session</span></button>
+  <button class="mi bad" onclick="exDel(${i})">${IC.trash}<span style="flex:1">Delete it entirely</span></button>
   <button class="btn gh" style="margin-top:14px" onclick="close_()">Cancel</button>`},
 
 /* ---- one logged session, editable ---- */
@@ -1670,12 +1720,25 @@ function logBench(k){const v=document.getElementById('bv').value.trim();if(!v)re
 function logAssess(){const o={d:todayISO()};['hips','ankles','shoulders'].forEach(k=>o[k]=+document.getElementById('a_'+k).value||0);
   D.assess.push(o);save();close_()}
 function saveNote(){const l=curLog();if(l){l.note=document.getElementById('sn').value;save()}close_()}
-function addExToday(){const l=curLog();if(!l)return;
-  const n=document.getElementById('ax').value;
-  const e={n:n,s:+document.getElementById('as').value||3,
-    r:document.getElementById('ar').value||'10',rest:+document.getElementById('ard').value||90};
-  l.extra=l.extra||[]; if(!l.extra.find(x=>x.n===n)&&!l.ex.find(x=>x.n===n))l.extra.push(e);
-  save();close_();go('train')}
+/* Add a one-off exercise to today. It goes STRAIGHT into log.ex — relying on
+   the seeder to pick it up out of `extra` meant a name that had been deleted or
+   swapped away was blocked forever, because the seeder skips anything already
+   listed in `seeded`. */
+function addExToday(){
+  const n=(document.getElementById('ax')||{value:''}).value;
+  if(!n)return;
+  const l=curLog();if(!l)return;
+  if(l.ex.some(x=>x.n===n)){alert(n+' is already in this session.');close_();return}
+  const sets=Math.max(1,Math.min(12,+((document.getElementById('as')||{}).value)||3));
+  const reps=((document.getElementById('ar')||{}).value)||'10';
+  const rest=+((document.getElementById('ard')||{}).value)||90;
+  l.ex.push({n:n,r:reps,rest:rest,
+    sets:Array.from({length:sets},()=>({w:'',r:'',done:false}))});
+  l.seeded=l.seeded||[];
+  if(l.seeded.indexOf(n)<0)l.seeded.push(n);
+  save();close_();go('train');
+}
+
 function tglBare(){D.settings.bareMode=!D.settings.bareMode;save();open_('set')}
 function saveSet(){['weight','age','height','restDefault','kcal','protein','fat'].forEach(k=>{
   const el=document.getElementById('s_'+k);if(el&&el.value!=='')D.settings[k]=+el.value});save();close_()}
