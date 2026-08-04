@@ -13,6 +13,44 @@ function curWeek(){
 function slotFor(day){const p=curP();return p.schedule[day===undefined?dIdx():day]}
 /* A session can come from three places: the programme, a saved custom workout,
    or one built on the fly. Look in all of them. */
+/* ================= SESSIONS PER DAY =================
+   A day holds an ARRAY of sessions. D.ui.sidx is which one of today's is open in the
+   Train tab; it is an index into that array, and it is clamped on every read so
+   a stale value can never point past the end. */
+/* Which of today's sessions is open. Persisted inside D: the service worker
+   reloads the app on every update and profileSwitch() reloads too, and a
+   module-local would silently bounce Juan back to session 1 mid-workout. */
+function getIdx(){return (D.ui&&D.ui.sidx)||0}
+function setIdx(i){D.ui=D.ui||{};D.ui.sidx=Math.max(0,i|0);save()}
+function dayLogs(k){const v=D.logs[k];
+  if(!v)return [];
+  if(!Array.isArray(v)){D.logs[k]=[v];return D.logs[k]}   // belt and braces
+  return v}
+function todayLogs(){return dayLogs(todayISO())}
+/* Walk every session ever logged. Everything that used to iterate D.logs by
+   date must go through this, or it will only ever see the first session of a
+   day and Juan's second workout vanishes from volume and calories again. */
+function eachSession(fn){
+  for(const k in D.logs)dayLogs(k).forEach((l,i)=>fn(k,l,i));
+}
+function curIdx(){const n=todayLogs().length;
+  if(!n)return 0;
+  return Math.max(0,Math.min(getIdx(),n-1))}
+function curLog(){const a=todayLogs();return a.length?a[curIdx()]:null}
+function setSess(i){setIdx(i);go('train')}
+/* Add a brand new session for today WITHOUT touching the ones already logged. */
+function addSess(id){const k=todayISO(),a=dayLogs(k);
+  D.logs[k]=a;
+  a.push({sid:id,pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),free:true});
+  setIdx(a.length-1);close_();go('train')}
+function delSess(i){const k=todayISO(),a=dayLogs(k);
+  if(!a[i])return;
+  if(!confirm('Delete this session? Any sets logged in it are removed from your totals.'))return;
+  a.splice(i,1);
+  if(!a.length)delete D.logs[k];
+  setIdx(0);close_();go('train')}
+function sessLabel(l){const s=sessById(l.sid);return (s&&s.n)||l.name||'Session'}
+
 function sessById(id){if(!id)return null;
   if(curP().sessions[id])return curP().sessions[id];
   if(D.custom[id])return D.custom[id];
@@ -20,6 +58,7 @@ function sessById(id){if(!id)return null;
      or a kettlebell complex can be run on ANY day of ANY programme, as a second
      workout or a replacement, without disturbing the block. */
   if(id.indexOf('kbx_')===0)return kbxSession(id.slice(4));
+  if(id.indexOf('cal_')===0)return calSession(id.slice(4));
   const x=XTRAORDER.map(k=>XTRA[k]).find(s=>s.id===id);
   return x||null}
 /* Start an optional extra without touching the programme schedule. */
@@ -27,16 +66,18 @@ function startKbx(k){const s=kbxSession(k);if(!s)return;
   D.custom[s.id]=s;save();close_();freeSession(s.id)}
 function startXtra(k){const x=XTRA[k];if(!x)return;
   D.custom[x.id]=x;save();close_();freeSession(x.id)}
+function startCal(k){const c=calSession(k);if(!c)return;
+  D.custom[c.id]=c;save();close_();freeSession(c.id)}
 /* TODAY'S session. If a session has already been chosen and logged for today —
    picked on a rest day, rescued, or custom-built — that choice wins over the
    schedule. Reading the schedule alone was why "train anyway" never opened. */
 function sessFor(day){
-  if(day===undefined){const l=D.logs[todayISO()];
+  if(day===undefined){const l=curLog();
     if(l&&l.sid){const s=sessById(l.sid);if(s)return s}}
   const s=slotFor(day);
   return (s==='rest'||s==='sport')?null:curP().sessions[s];
 }
-function todaySid(){const l=D.logs[todayISO()];if(l&&l.sid&&sessById(l.sid))return l.sid;
+function todaySid(){const l=curLog();if(l&&l.sid&&sessById(l.sid))return l.sid;
   const s=slotFor();return (s==='rest'||s==='sport')?null:s}
 function uid(){return 'c'+Date.now().toString(36)+Math.random().toString(36).slice(2,5)}
 function progPct(){const p=curP();return Math.min(100,Math.round((daysBetween(D.active.start,todayISO())+1)/(p.weeks*7)*100))}
@@ -51,9 +92,13 @@ function parseRange(r){const m=String(r).match(/(\d+)\s*-\s*(\d+)/);
   if(m)return[+m[1],+m[2]];const s=String(r).match(/^(\d+)/);return s?[+s[1],+s[1]]:null}
 function lastLog(name){
   const ks=Object.keys(D.logs).sort().reverse();
-  for(const k of ks){const l=D.logs[k];if(!l||!l.ex)continue;
-    const e=l.ex.find(x=>x.n===name&&x.sets&&x.sets.some(s=>s.done));
-    if(e)return{date:k,e:e}}
+  for(const k of ks){
+    /* newest session of the day first, so a second workout progresses off
+       itself rather than off the morning's numbers */
+    const day=dayLogs(k);
+    for(let i=day.length-1;i>=0;i--){const l=day[i];if(!l||!l.ex)continue;
+      const e=l.ex.find(x=>x.n===name&&x.sets&&x.sets.some(s=>s.done));
+      if(e)return{date:k,e:e}}}
   return null;
 }
 function bumpFor(name){
@@ -114,11 +159,13 @@ function addVol(out,name,n){const ms=(EX[name]&&EX[name].m)||[];
 function volume(days){
   const out={};MUS.forEach(m=>out[m]=0);
   const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
-  for(const k in D.logs){ if(k<cut)continue; const l=D.logs[k]; if(!l.ex)continue;
+  /* EVERY session of every day. Iterating D.logs by date alone would only see
+     the first workout and silently drop Juan's second one. */
+  eachSession((k,l)=>{ if(k<cut||!l.ex)return;
     /* Skipped exercises and anything flagged as a warm-up are real work but not
        growth stimulus — they must not inflate the heat map. */
     l.ex.forEach(e=>{if(e.skip||e.warm)return;
-      const n=(e.sets||[]).filter(s=>s.done).length; if(n)addVol(out,e.n,n)});}
+      const n=(e.sets||[]).filter(s=>s.done).length; if(n)addVol(out,e.n,n)});});
   MUS.forEach(m=>out[m]=Math.round(out[m]));
   return out;
 }
@@ -128,69 +175,132 @@ function volume(days){
 const LAND={chest:[6,10,22],back:[8,12,28],delts:[6,8,26],biceps:[5,8,20],triceps:[5,8,20],
 quads:[6,10,20],hams:[4,8,20],glutes:[4,8,20],calves:[6,8,20],core:[6,10,26],
 forearms:[5,8,25],traps:[4,6,20]};
-function volState(v,m){const L=LAND[m]||[6,10,20];
+function volState2(v,L){L=L||[6,10,20];
   return v<L[0]?['Under','var(--bad)']:v<L[1]?['Building','var(--warn)']
     :v<=L[2]?['In range','var(--ok)']:['High','var(--warn)']}
+function volState(v,m){return volState2(v,LAND[m])}
 
 /* ================= ANATOMY HEAT MAP =================
    Line-art figures. Every muscle is a stroked outline; colour fills in only
    as that muscle takes volume, judged against its own landmarks. Left-half
    paths are mirrored for the right side. */
-/* Bodybuilder figure, ~7.5 heads tall, X-frame: wide delts and lats tapering
-   hard to a small waist, thick quad sweep, small joints at wrist, knee, ankle.
-   Muscle groups are real anatomical segments — pec fans, four ab pairs,
-   vastus lateralis / rectus femoris / vastus medialis, two gastroc heads —
-   rather than the blocky rectangles of v3. Geometry is generated from
-   width-at-height landmarks (see anat3.py in the build notes) so it can be
-   re-tuned without hand-editing beziers.
-   Left half only; the right is mirrored with scale(-1,1). */
-const SILH='<path d="M100,6 C112,6 120,17 120,33 C120,49 112,60 100,60 C88,60 80,49 80,33 C80,17 88,6 100,6 Z"/>'
-+'<path d="M86.0,54.0C83.2,55.3 83.7,59.3 83.0,62.0C82.3,64.7 79.2,68.7 82.0,70.0C84.8,71.3 97.0,71.3 100.0,70.0C103.0,68.7 100.0,64.7 100.0,62.0C100.0,59.3 102.3,55.3 100.0,54.0C97.7,52.7 88.8,52.7 86.0,54.0Z"/>'
-+'<path d="M84.0,64.0C79.7,65.3 77.0,69.0 74.0,72.0C71.0,75.0 68.0,78.3 66.0,82.0C64.0,85.7 62.8,90.0 62.0,94.0C61.2,98.0 61.0,102.0 61.0,106.0C61.0,110.0 61.5,114.0 62.0,118.0C62.5,122.0 64.2,126.0 64.0,130.0C63.8,134.0 61.8,138.0 61.0,142.0C60.2,146.0 58.5,150.0 59.0,154.0C59.5,158.0 61.8,162.3 64.0,166.0C66.2,169.7 69.7,172.8 72.0,176.0C74.3,179.2 77.7,182.0 78.0,185.0C78.3,188.0 75.5,191.0 74.0,194.0C72.5,197.0 70.3,200.0 69.0,203.0C67.7,206.0 66.3,209.2 66.0,212.0C65.7,214.8 66.3,217.7 67.0,220.0C67.7,222.3 64.5,225.0 70.0,226.0C75.5,227.0 95.0,253.0 100.0,226.0C105.0,199.0 102.7,91.0 100.0,64.0C97.3,37.0 88.3,62.7 84.0,64.0Z"/>'
-+'<path d="M72.0,70.0C69.3,71.7 60.8,76.3 56.0,80.0C51.2,83.7 46.3,88.0 43.0,92.0C39.7,96.0 37.7,100.7 36.0,104.0C34.3,107.3 33.3,108.7 33.0,112.0C32.7,115.3 33.3,120.0 34.0,124.0C34.7,128.0 36.0,132.0 37.0,136.0C38.0,140.0 39.0,144.0 40.0,148.0C41.0,152.0 42.0,156.0 43.0,160.0C44.0,164.0 45.2,168.3 46.0,172.0C46.8,175.7 48.2,178.3 48.0,182.0C47.8,185.7 45.8,190.0 45.0,194.0C44.2,198.0 43.2,202.0 43.0,206.0C42.8,210.0 43.2,213.7 44.0,218.0C44.8,222.3 46.5,227.7 48.0,232.0C49.5,236.3 51.5,240.3 53.0,244.0C54.5,247.7 56.2,250.7 57.0,254.0C57.8,257.3 57.5,260.7 58.0,264.0C58.5,267.3 59.3,271.0 60.0,274.0C60.7,277.0 59.7,280.7 62.0,282.0C64.3,283.3 72.2,283.3 74.0,282.0C75.8,280.7 73.5,277.0 73.0,274.0C72.5,271.0 71.5,267.3 71.0,264.0C70.5,260.7 70.7,257.3 70.0,254.0C69.3,250.7 68.0,247.7 67.0,244.0C66.0,240.3 65.0,236.3 64.0,232.0C63.0,227.7 61.7,222.3 61.0,218.0C60.3,213.7 60.0,210.0 60.0,206.0C60.0,202.0 60.7,198.0 61.0,194.0C61.3,190.0 62.2,185.7 62.0,182.0C61.8,178.3 60.7,175.7 60.0,172.0C59.3,168.3 58.7,164.0 58.0,160.0C57.3,156.0 56.5,152.0 56.0,148.0C55.5,144.0 55.2,140.0 55.0,136.0C54.8,132.0 54.8,127.7 55.0,124.0C55.2,120.3 55.7,117.0 56.0,114.0C56.3,111.0 56.3,109.3 57.0,106.0C57.7,102.7 58.5,98.0 60.0,94.0C61.5,90.0 64.0,86.0 66.0,82.0C68.0,78.0 71.0,72.0 72.0,70.0C73.0,68.0 74.7,68.3 72.0,70.0Z"/>'
-+'<path d="M70.0,224.0C64.0,226.0 63.3,231.7 61.0,236.0C58.7,240.3 57.0,245.3 56.0,250.0C55.0,254.7 54.8,259.3 55.0,264.0C55.2,268.7 55.8,273.3 57.0,278.0C58.2,282.7 59.8,287.3 62.0,292.0C64.2,296.7 67.3,301.7 70.0,306.0C72.7,310.3 77.7,314.0 78.0,318.0C78.3,322.0 73.8,326.0 72.0,330.0C70.2,334.0 68.0,338.0 67.0,342.0C66.0,346.0 65.7,350.0 66.0,354.0C66.3,358.0 67.5,362.0 69.0,366.0C70.5,370.0 73.0,374.3 75.0,378.0C77.0,381.7 79.3,385.0 81.0,388.0C82.7,391.0 84.2,393.0 85.0,396.0C85.8,399.0 85.3,403.0 86.0,406.0C86.7,409.0 87.3,412.7 89.0,414.0C90.7,415.3 95.0,415.3 96.0,414.0C97.0,412.7 95.3,409.0 95.0,406.0C94.7,403.0 94.3,399.0 94.0,396.0C93.7,393.0 93.3,391.0 93.0,388.0C92.7,385.0 92.3,381.7 92.0,378.0C91.7,374.3 91.3,370.0 91.0,366.0C90.7,362.0 90.2,358.0 90.0,354.0C89.8,350.0 90.0,346.0 90.0,342.0C90.0,338.0 90.0,334.0 90.0,330.0C90.0,326.0 89.8,322.0 90.0,318.0C90.2,314.0 90.7,310.3 91.0,306.0C91.3,301.7 91.7,296.7 92.0,292.0C92.3,287.3 92.7,282.7 93.0,278.0C93.3,273.3 93.7,268.7 94.0,264.0C94.3,259.3 94.7,254.7 95.0,250.0C95.3,245.3 95.7,240.3 96.0,236.0C96.3,231.7 101.3,226.0 97.0,224.0C92.7,222.0 76.0,222.0 70.0,224.0Z"/>';
-const AF={
-traps:["M86.0,64.0C82.3,65.0 80.5,67.8 78.0,70.0C75.5,72.2 72.8,75.0 71.0,77.0C69.2,79.0 64.5,81.2 67.0,82.0C69.5,82.8 82.0,82.8 86.0,82.0C90.0,81.2 89.2,79.0 91.0,77.0C92.8,75.0 95.5,72.2 97.0,70.0C98.5,67.8 101.8,65.0 100.0,64.0C98.2,63.0 89.7,63.0 86.0,64.0Z"],
-delts:["M72.0,70.0C69.5,71.7 61.7,76.3 57.0,80.0C52.3,83.7 47.3,88.0 44.0,92.0C40.7,96.0 38.7,100.7 37.0,104.0C35.3,107.3 34.2,109.0 34.0,112.0C33.8,115.0 35.0,119.0 36.0,122.0C37.0,125.0 36.5,128.7 40.0,130.0C43.5,131.3 54.3,131.3 57.0,130.0C59.7,128.7 56.0,125.0 56.0,122.0C56.0,119.0 56.7,115.0 57.0,112.0C57.3,109.0 57.3,107.0 58.0,104.0C58.7,101.0 59.5,97.7 61.0,94.0C62.5,90.3 65.2,86.0 67.0,82.0C68.8,78.0 71.2,72.0 72.0,70.0C72.8,68.0 74.5,68.3 72.0,70.0Z"],
-chest:["M74.0,74.0C69.2,75.3 69.3,79.0 68.0,82.0C66.7,85.0 66.2,89.0 66.0,92.0C65.8,95.0 62.0,98.7 67.0,100.0C72.0,101.3 91.0,101.0 96.0,100.0C101.0,99.0 96.8,96.7 97.0,94.0C97.2,91.3 97.0,87.3 97.0,84.0C97.0,80.7 100.8,75.7 97.0,74.0C93.2,72.3 78.8,72.7 74.0,74.0Z","M67.0,102.0C62.8,103.3 69.2,107.3 71.0,110.0C72.8,112.7 75.2,115.7 78.0,118.0C80.8,120.3 85.3,123.0 88.0,124.0C90.7,125.0 92.8,125.0 94.0,124.0C95.2,123.0 94.7,120.3 95.0,118.0C95.3,115.7 95.8,112.7 96.0,110.0C96.2,107.3 100.8,103.3 96.0,102.0C91.2,100.7 71.2,100.7 67.0,102.0Z"],
-biceps:["M38.0,136.0C35.5,137.7 39.2,142.7 40.0,146.0C40.8,149.3 42.0,152.7 43.0,156.0C44.0,159.3 45.0,163.0 46.0,166.0C47.0,169.0 46.5,172.7 49.0,174.0C51.5,175.3 59.3,175.3 61.0,174.0C62.7,172.7 59.7,169.0 59.0,166.0C58.3,163.0 57.5,159.3 57.0,156.0C56.5,152.7 56.3,149.3 56.0,146.0C55.7,142.7 58.0,137.7 55.0,136.0C52.0,134.3 40.5,134.3 38.0,136.0Z"],
-forearms:["M47.0,190.0C44.2,192.0 44.7,198.0 44.0,202.0C43.3,206.0 42.7,210.0 43.0,214.0C43.3,218.0 44.7,222.0 46.0,226.0C47.3,230.0 49.3,234.3 51.0,238.0C52.7,241.7 53.0,246.3 56.0,248.0C59.0,249.7 67.5,249.7 69.0,248.0C70.5,246.3 66.3,241.7 65.0,238.0C63.7,234.3 61.8,230.0 61.0,226.0C60.2,222.0 60.2,218.0 60.0,214.0C59.8,210.0 59.8,206.0 60.0,202.0C60.2,198.0 63.2,192.0 61.0,190.0C58.8,188.0 49.8,188.0 47.0,190.0Z"],
-core:["M87.0,112.0C85.2,113.2 86.2,116.7 86.0,119.0C85.8,121.3 84.2,124.8 86.0,126.0C87.8,127.2 95.2,127.2 97.0,126.0C98.8,124.8 97.0,121.3 97.0,119.0C97.0,116.7 98.7,113.2 97.0,112.0C95.3,110.8 88.8,110.8 87.0,112.0Z","M86.0,130.0C84.0,131.2 85.2,134.7 85.0,137.0C84.8,139.3 83.0,142.8 85.0,144.0C87.0,145.2 95.0,145.2 97.0,144.0C99.0,142.8 97.0,139.3 97.0,137.0C97.0,134.7 98.8,131.2 97.0,130.0C95.2,128.8 88.0,128.8 86.0,130.0Z","M85.0,148.0C82.8,149.2 84.2,152.7 84.0,155.0C83.8,157.3 81.8,160.8 84.0,162.0C86.2,163.2 94.8,163.2 97.0,162.0C99.2,160.8 97.0,157.3 97.0,155.0C97.0,152.7 99.0,149.2 97.0,148.0C95.0,146.8 87.2,146.8 85.0,148.0Z","M84.0,166.0C81.7,167.3 83.0,171.2 83.0,174.0C83.0,176.8 81.8,181.5 84.0,183.0C86.2,184.5 93.8,184.5 96.0,183.0C98.2,181.5 96.8,176.8 97.0,174.0C97.2,171.2 99.2,167.3 97.0,166.0C94.8,164.7 86.3,164.7 84.0,166.0Z","M82.0,108.0C79.2,110.3 76.0,117.0 74.0,122.0C72.0,127.0 70.3,132.7 70.0,138.0C69.7,143.3 70.8,148.7 72.0,154.0C73.2,159.3 75.3,165.2 77.0,170.0C78.7,174.8 81.2,180.8 82.0,183.0C82.8,185.2 82.0,185.2 82.0,183.0C82.0,180.8 81.8,174.8 82.0,170.0C82.2,165.2 82.7,159.3 83.0,154.0C83.3,148.7 83.3,143.3 84.0,138.0C84.7,132.7 85.8,127.0 87.0,122.0C88.2,117.0 91.8,110.3 91.0,108.0C90.2,105.7 84.8,105.7 82.0,108.0Z"],
-quads:["M70.0,230.0C66.3,232.0 64.0,237.7 62.0,242.0C60.0,246.3 58.7,251.3 58.0,256.0C57.3,260.7 57.2,265.3 58.0,270.0C58.8,274.7 60.8,279.3 63.0,284.0C65.2,288.7 68.3,293.7 71.0,298.0C73.7,302.3 76.5,308.0 79.0,310.0C81.5,312.0 85.5,312.0 86.0,310.0C86.5,308.0 83.5,302.3 82.0,298.0C80.5,293.7 78.3,288.7 77.0,284.0C75.7,279.3 74.5,274.7 74.0,270.0C73.5,265.3 73.3,260.7 74.0,256.0C74.7,251.3 76.3,246.3 78.0,242.0C79.7,237.7 85.3,232.0 84.0,230.0C82.7,228.0 73.7,228.0 70.0,230.0Z","M86.0,230.0C83.5,232.3 82.3,239.3 81.0,244.0C79.7,248.7 78.5,253.3 78.0,258.0C77.5,262.7 77.5,267.3 78.0,272.0C78.5,276.7 79.7,281.3 81.0,286.0C82.3,290.7 84.5,297.7 86.0,300.0C87.5,302.3 89.2,302.3 90.0,300.0C90.8,297.7 90.7,290.7 91.0,286.0C91.3,281.3 91.7,276.7 92.0,272.0C92.3,267.3 92.7,262.7 93.0,258.0C93.3,253.3 93.5,248.7 94.0,244.0C94.5,239.3 97.3,232.3 96.0,230.0C94.7,227.7 88.5,227.7 86.0,230.0Z","M85.0,284.0C82.7,285.7 81.8,290.7 81.0,294.0C80.2,297.3 79.5,300.7 80.0,304.0C80.5,307.3 82.3,312.3 84.0,314.0C85.7,315.7 88.7,315.7 90.0,314.0C91.3,312.3 91.5,307.3 92.0,304.0C92.5,300.7 92.5,297.3 93.0,294.0C93.5,290.7 96.3,285.7 95.0,284.0C93.7,282.3 87.3,282.3 85.0,284.0Z"],
-calves:["M74.0,326.0C71.3,328.0 69.5,334.0 68.0,338.0C66.5,342.0 65.3,346.0 65.0,350.0C64.7,354.0 64.8,358.0 66.0,362.0C67.2,366.0 69.7,370.0 72.0,374.0C74.3,378.0 77.3,384.0 80.0,386.0C82.7,388.0 87.3,388.0 88.0,386.0C88.7,384.0 85.3,378.0 84.0,374.0C82.7,370.0 80.8,366.0 80.0,362.0C79.2,358.0 78.8,354.0 79.0,350.0C79.2,346.0 80.2,342.0 81.0,338.0C81.8,334.0 85.2,328.0 84.0,326.0C82.8,324.0 76.7,324.0 74.0,326.0Z","M86.0,326.0C84.0,328.0 83.8,334.0 83.0,338.0C82.2,342.0 81.2,346.0 81.0,350.0C80.8,354.0 81.2,358.0 82.0,362.0C82.8,366.0 84.7,370.0 86.0,374.0C87.3,378.0 88.8,384.0 90.0,386.0C91.2,388.0 92.5,388.0 93.0,386.0C93.5,384.0 93.0,378.0 93.0,374.0C93.0,370.0 93.0,366.0 93.0,362.0C93.0,358.0 92.8,354.0 93.0,350.0C93.2,346.0 93.7,342.0 94.0,338.0C94.3,334.0 96.3,328.0 95.0,326.0C93.7,324.0 88.0,324.0 86.0,326.0Z"]};
-const AB={
-traps:["M86.0,64.0C82.2,65.0 79.7,67.7 77.0,70.0C74.3,72.3 71.8,75.7 70.0,78.0C68.2,80.3 63.7,83.0 66.0,84.0C68.3,85.0 80.2,85.0 84.0,84.0C87.8,83.0 87.0,80.3 89.0,78.0C91.0,75.7 94.2,72.3 96.0,70.0C97.8,67.7 101.7,65.0 100.0,64.0C98.3,63.0 89.8,63.0 86.0,64.0Z","M72.0,86.0C67.3,88.0 68.2,94.0 67.0,98.0C65.8,102.0 65.0,106.3 65.0,110.0C65.0,113.7 63.0,118.3 67.0,120.0C71.0,121.7 85.0,121.7 89.0,120.0C93.0,118.3 90.3,113.7 91.0,110.0C91.7,106.3 92.3,102.0 93.0,98.0C93.7,94.0 98.5,88.0 95.0,86.0C91.5,84.0 76.7,84.0 72.0,86.0Z"],
-delts:["M72.0,70.0C69.5,71.7 61.7,76.3 57.0,80.0C52.3,83.7 47.3,88.0 44.0,92.0C40.7,96.0 38.7,100.7 37.0,104.0C35.3,107.3 34.2,109.0 34.0,112.0C33.8,115.0 35.0,119.0 36.0,122.0C37.0,125.0 36.5,128.7 40.0,130.0C43.5,131.3 54.3,131.3 57.0,130.0C59.7,128.7 56.0,125.0 56.0,122.0C56.0,119.0 56.7,115.0 57.0,112.0C57.3,109.0 57.3,107.0 58.0,104.0C58.7,101.0 59.5,97.7 61.0,94.0C62.5,90.3 65.2,86.0 67.0,82.0C68.8,78.0 71.2,72.0 72.0,70.0C72.8,68.0 74.5,68.3 72.0,70.0Z"],
-back:["M66.0,90.0C60.3,92.3 61.5,99.3 60.0,104.0C58.5,108.7 57.5,113.3 57.0,118.0C56.5,122.7 56.3,127.3 57.0,132.0C57.7,136.7 59.2,141.3 61.0,146.0C62.8,150.7 65.3,155.7 68.0,160.0C70.7,164.3 74.3,168.7 77.0,172.0C79.7,175.3 81.5,178.7 84.0,180.0C86.5,181.3 90.7,181.3 92.0,180.0C93.3,178.7 92.0,175.3 92.0,172.0C92.0,168.7 92.0,164.3 92.0,160.0C92.0,155.7 92.0,150.7 92.0,146.0C92.0,141.3 92.0,136.7 92.0,132.0C92.0,127.3 91.8,122.7 92.0,118.0C92.2,113.3 92.7,108.7 93.0,104.0C93.3,99.3 98.5,92.3 94.0,90.0C89.5,87.7 71.7,87.7 66.0,90.0Z","M85.0,182.0C82.8,183.3 83.5,187.3 83.0,190.0C82.5,192.7 81.8,195.3 82.0,198.0C82.2,200.7 81.8,204.7 84.0,206.0C86.2,207.3 93.2,207.3 95.0,206.0C96.8,204.7 95.0,200.7 95.0,198.0C95.0,195.3 94.8,192.7 95.0,190.0C95.2,187.3 97.7,183.3 96.0,182.0C94.3,180.7 87.2,180.7 85.0,182.0Z"],
-triceps:["M40.0,136.0C37.7,137.7 41.2,142.7 42.0,146.0C42.8,149.3 44.0,152.7 45.0,156.0C46.0,159.3 47.0,162.7 48.0,166.0C49.0,169.3 48.7,174.3 51.0,176.0C53.3,177.7 60.5,177.7 62.0,176.0C63.5,174.3 60.7,169.3 60.0,166.0C59.3,162.7 58.5,159.3 58.0,156.0C57.5,152.7 57.3,149.3 57.0,146.0C56.7,142.7 58.8,137.7 56.0,136.0C53.2,134.3 42.3,134.3 40.0,136.0Z","M37.0,122.0C34.3,123.3 37.3,127.0 38.0,130.0C38.7,133.0 40.0,137.0 41.0,140.0C42.0,143.0 41.3,146.7 44.0,148.0C46.7,149.3 55.2,149.3 57.0,148.0C58.8,146.7 55.5,143.0 55.0,140.0C54.5,137.0 54.2,133.0 54.0,130.0C53.8,127.0 56.8,123.3 54.0,122.0C51.2,120.7 39.7,120.7 37.0,122.0Z"],
-forearms:["M47.0,190.0C44.2,192.0 44.7,198.0 44.0,202.0C43.3,206.0 42.7,210.0 43.0,214.0C43.3,218.0 44.7,222.0 46.0,226.0C47.3,230.0 49.3,234.3 51.0,238.0C52.7,241.7 53.0,246.3 56.0,248.0C59.0,249.7 67.5,249.7 69.0,248.0C70.5,246.3 66.3,241.7 65.0,238.0C63.7,234.3 61.8,230.0 61.0,226.0C60.2,222.0 60.2,218.0 60.0,214.0C59.8,210.0 59.8,206.0 60.0,202.0C60.2,198.0 63.2,192.0 61.0,190.0C58.8,188.0 49.8,188.0 47.0,190.0Z"],
-glutes:["M82.0,206.0C78.0,207.3 74.5,211.0 72.0,214.0C69.5,217.0 67.7,220.3 67.0,224.0C66.3,227.7 66.8,232.7 68.0,236.0C69.2,239.3 69.3,242.7 74.0,244.0C78.7,245.3 92.3,245.3 96.0,244.0C99.7,242.7 96.0,239.0 96.0,236.0C96.0,233.0 96.0,229.3 96.0,226.0C96.0,222.7 96.0,219.3 96.0,216.0C96.0,212.7 98.3,207.7 96.0,206.0C93.7,204.3 86.0,204.7 82.0,206.0Z"],
-hams:["M68.0,230.0C64.2,232.0 61.8,237.7 60.0,242.0C58.2,246.3 57.3,251.3 57.0,256.0C56.7,260.7 56.8,265.3 58.0,270.0C59.2,274.7 61.7,279.3 64.0,284.0C66.3,288.7 69.3,293.7 72.0,298.0C74.7,302.3 77.5,308.0 80.0,310.0C82.5,312.0 86.5,312.0 87.0,310.0C87.5,308.0 84.5,302.3 83.0,298.0C81.5,293.7 79.5,288.7 78.0,284.0C76.5,279.3 74.8,274.7 74.0,270.0C73.2,265.3 72.5,260.7 73.0,256.0C73.5,251.3 75.3,246.3 77.0,242.0C78.7,237.7 84.5,232.0 83.0,230.0C81.5,228.0 71.8,228.0 68.0,230.0Z","M85.0,230.0C82.3,232.3 81.2,239.3 80.0,244.0C78.8,248.7 78.3,253.3 78.0,258.0C77.7,262.7 77.3,267.3 78.0,272.0C78.7,276.7 80.5,281.3 82.0,286.0C83.5,290.7 85.7,297.7 87.0,300.0C88.3,302.3 89.3,302.3 90.0,300.0C90.7,297.7 90.7,290.7 91.0,286.0C91.3,281.3 91.7,276.7 92.0,272.0C92.3,267.3 92.7,262.7 93.0,258.0C93.3,253.3 93.5,248.7 94.0,244.0C94.5,239.3 97.5,232.3 96.0,230.0C94.5,227.7 87.7,227.7 85.0,230.0Z"],
-calves:["M73.0,324.0C70.2,325.7 68.5,330.3 67.0,334.0C65.5,337.7 64.3,342.0 64.0,346.0C63.7,350.0 63.8,354.0 65.0,358.0C66.2,362.0 68.5,366.0 71.0,370.0C73.5,374.0 77.2,380.0 80.0,382.0C82.8,384.0 87.5,384.0 88.0,382.0C88.5,380.0 84.5,374.0 83.0,370.0C81.5,366.0 79.8,362.0 79.0,358.0C78.2,354.0 77.8,350.0 78.0,346.0C78.2,342.0 79.0,337.7 80.0,334.0C81.0,330.3 85.2,325.7 84.0,324.0C82.8,322.3 75.8,322.3 73.0,324.0Z","M86.0,324.0C83.8,325.7 83.0,330.3 82.0,334.0C81.0,337.7 80.2,342.0 80.0,346.0C79.8,350.0 80.2,354.0 81.0,358.0C81.8,362.0 83.5,366.0 85.0,370.0C86.5,374.0 88.7,380.0 90.0,382.0C91.3,384.0 92.5,384.0 93.0,382.0C93.5,380.0 93.0,374.0 93.0,370.0C93.0,366.0 93.0,362.0 93.0,358.0C93.0,354.0 92.8,350.0 93.0,346.0C93.2,342.0 93.7,337.7 94.0,334.0C94.3,330.3 96.3,325.7 95.0,324.0C93.7,322.3 88.2,322.3 86.0,324.0Z","M82.0,386.0C80.8,387.3 84.0,391.7 85.0,394.0C86.0,396.3 86.5,399.0 88.0,400.0C89.5,401.0 93.2,401.0 94.0,400.0C94.8,399.0 93.3,396.3 93.0,394.0C92.7,391.7 93.8,387.3 92.0,386.0C90.2,384.7 83.2,384.7 82.0,386.0Z"]};
-function heatFill(v,m){const L=LAND[m]||[6,10,20];
-  if(!v||v<=0)return['none',0];
-  if(v<L[0])return['var(--acc)',.25];
-  if(v<L[1])return['var(--acc)',.5];
-  if(v<=L[2])return['var(--acc)',.92];
-  return['var(--warn)',.92];}
-function figure(parts,v,label){
-  let o='<svg viewBox="0 0 200 430" width="100%" role="img" aria-label="'+label+' view muscle heat map">';
-  /* body first, as a filled dark form, so muscle colour reads ON the figure */
-  for(let g=0;g<2;g++){
-    o+='<g'+(g?' transform="scale(-1,1) translate(-200,0)"':'')
-      +' fill="var(--s2)" stroke="var(--tx3)" stroke-width="1.1" stroke-linejoin="round" opacity=".9">'
-      +SILH+'</g>';}
-  for(let g=0;g<2;g++){
-    o+='<g'+(g?' transform="scale(-1,1) translate(-200,0)"':'')+'>';
-    for(const m in parts){const f=heatFill(v[m],m);
-      parts[m].forEach(d=>{o+='<path d="'+d+'" fill="'+f[0]+'" fill-opacity="'+f[1]
-        +'" stroke="var(--tx3)" stroke-width=".85" stroke-opacity=".8"><title>'
-        +MUSN[m]+' \u2014 '+(v[m]||0)+' sets</title></path>'});}
-    o+='</g>';}
-  return o+'<text x="100" y="426" text-anchor="middle" font-size="11" fill="var(--tx3)">'+label+'</text></svg>';
+/* ================= ANATOMY FIGURE (Beta 1.0) =================
+   Rebuilt. Every previous version drew a body outline and then laid muscle
+   shapes on top, and each iteration fought a mismatch between the two — shapes
+   spilling past the edge, or vanishing inside it. HERE THERE IS NO SILHOUETTE:
+   the muscle groups ARE the body. Every coloured region is a tracked muscle, so
+   "which muscle is that" has an answer by construction, and overflow is
+   impossible because there is nothing to overflow. Untrained muscles render as
+   a VISIBLE grey block rather than the hairline outline that made v4 unreadable.
+
+   Non-muscle filler (head, neck, hands, knees, feet) is flat body colour and is
+   obviously not a muscle. Left half only; the right is mirrored numerically —
+   an SVG transform inside a clipPath is not honoured by every renderer.
+
+   Geometry is generated from half-width landmark tables; see
+   Health/JHFP-build/anat_v5.py. Retuning is editing numbers, not beziers. */
+const AFILL=["M100,8 C112,8 119,19 119,34 C119,49 112,59 100,59 C88,59 81,49 81,34 C81,19 88,8 100,8 Z","M85.0,50.0C82.7,51.7 85.7,57.0 86.0,60.0C86.3,63.0 84.7,66.7 87.0,68.0C89.3,69.3 97.8,69.3 100.0,68.0C102.2,66.7 100.0,63.0 100.0,60.0C100.0,57.0 102.5,51.7 100.0,50.0C97.5,48.3 87.3,48.3 85.0,50.0Z","M70.0,258.0C67.3,260.0 68.0,266.0 68.0,270.0C68.0,274.0 69.0,278.7 70.0,282.0C71.0,285.3 72.0,288.7 74.0,290.0C76.0,291.3 80.3,291.3 82.0,290.0C83.7,288.7 83.5,285.3 84.0,282.0C84.5,278.7 85.0,274.0 85.0,270.0C85.0,266.0 86.5,260.0 84.0,258.0C81.5,256.0 72.7,256.0 70.0,258.0Z","M81.0,320.0C79.3,321.7 81.8,327.0 82.0,330.0C82.2,333.0 80.3,336.7 82.0,338.0C83.7,339.3 90.3,339.3 92.0,338.0C93.7,336.7 92.0,333.0 92.0,330.0C92.0,327.0 93.8,321.7 92.0,320.0C90.2,318.3 82.7,318.3 81.0,320.0Z","M85.0,400.0C83.7,402.0 85.7,408.7 86.0,412.0C86.3,415.3 85.7,418.7 87.0,420.0C88.3,421.3 92.7,421.3 94.0,420.0C95.3,418.7 95.0,415.3 95.0,412.0C95.0,408.7 95.7,402.0 94.0,400.0C92.3,398.0 86.3,398.0 85.0,400.0Z"];
+const AF={traps:["M70.0,62.0C67.3,63.3 69.7,67.7 70.0,70.0C70.3,72.3 69.3,75.0 72.0,76.0C74.7,77.0 83.7,77.0 86.0,76.0C88.3,75.0 86.0,72.3 86.0,70.0C86.0,67.7 88.7,63.3 86.0,62.0C83.3,60.7 72.7,60.7 70.0,62.0Z"],delts:["M56.0,64.0C51.7,66.0 47.0,71.7 44.0,76.0C41.0,80.3 39.0,85.3 38.0,90.0C37.0,94.7 37.2,99.7 38.0,104.0C38.8,108.3 39.0,114.0 43.0,116.0C47.0,118.0 58.8,118.0 62.0,116.0C65.2,114.0 62.0,108.3 62.0,104.0C62.0,99.7 61.7,94.7 62.0,90.0C62.3,85.3 62.7,80.3 64.0,76.0C65.3,71.7 71.3,66.0 70.0,64.0C68.7,62.0 60.3,62.0 56.0,64.0Z"],chest:["M64.0,78.0C58.3,80.3 63.8,87.3 64.0,92.0C64.2,96.7 64.2,101.7 65.0,106.0C65.8,110.3 67.5,114.7 69.0,118.0C70.5,121.3 69.2,124.7 74.0,126.0C78.8,127.3 94.0,127.3 98.0,126.0C102.0,124.7 98.0,121.3 98.0,118.0C98.0,114.7 98.0,110.3 98.0,106.0C98.0,101.7 98.0,96.7 98.0,92.0C98.0,87.3 103.7,80.3 98.0,78.0C92.3,75.7 69.7,75.7 64.0,78.0Z"],biceps:["M43.0,122.0C40.2,124.7 44.2,132.7 45.0,138.0C45.8,143.3 47.0,148.7 48.0,154.0C49.0,159.3 50.0,165.7 51.0,170.0C52.0,174.3 52.5,178.3 54.0,180.0C55.5,181.7 59.0,181.7 60.0,180.0C61.0,178.3 60.0,174.3 60.0,170.0C60.0,165.7 59.8,159.3 60.0,154.0C60.2,148.7 60.7,143.3 61.0,138.0C61.3,132.7 65.0,124.7 62.0,122.0C59.0,119.3 45.8,119.3 43.0,122.0Z"],forearms:["M53.0,186.0C51.0,188.7 51.2,196.7 51.0,202.0C50.8,207.3 51.2,212.3 52.0,218.0C52.8,223.7 54.5,230.3 56.0,236.0C57.5,241.7 59.5,249.3 61.0,252.0C62.5,254.7 64.7,254.7 65.0,252.0C65.3,249.3 63.2,241.7 63.0,236.0C62.8,230.3 63.8,223.7 64.0,218.0C64.2,212.3 64.2,207.3 64.0,202.0C63.8,196.7 64.8,188.7 63.0,186.0C61.2,183.3 55.0,183.3 53.0,186.0Z"],core:["M75.0,130.0C71.3,133.0 75.7,142.0 76.0,148.0C76.3,154.0 76.7,160.3 77.0,166.0C77.3,171.7 78.2,177.0 78.0,182.0C77.8,187.0 72.7,193.7 76.0,196.0C79.3,198.3 94.3,198.3 98.0,196.0C101.7,193.7 98.0,187.0 98.0,182.0C98.0,177.0 98.0,171.7 98.0,166.0C98.0,160.3 98.0,154.0 98.0,148.0C98.0,142.0 101.8,133.0 98.0,130.0C94.2,127.0 78.7,127.0 75.0,130.0Z"],quads:["M69.0,204.0C64.0,207.3 67.2,217.0 67.0,224.0C66.8,231.0 67.3,238.3 68.0,246.0C68.7,253.7 69.8,262.0 71.0,270.0C72.2,278.0 73.5,286.7 75.0,294.0C76.5,301.3 77.0,310.7 80.0,314.0C83.0,317.3 90.7,317.3 93.0,314.0C95.3,310.7 93.7,301.3 94.0,294.0C94.3,286.7 94.8,278.0 95.0,270.0C95.2,262.0 94.8,253.7 95.0,246.0C95.2,238.3 95.7,231.0 96.0,224.0C96.3,217.0 101.5,207.3 97.0,204.0C92.5,200.7 74.0,200.7 69.0,204.0Z"],calves:["M78.0,342.0C75.0,344.7 76.2,352.7 76.0,358.0C75.8,363.3 76.2,369.0 77.0,374.0C77.8,379.0 79.7,384.0 81.0,388.0C82.3,392.0 82.8,396.3 85.0,398.0C87.2,399.7 92.5,399.7 94.0,398.0C95.5,396.3 94.0,392.0 94.0,388.0C94.0,384.0 94.0,379.0 94.0,374.0C94.0,369.0 94.0,363.3 94.0,358.0C94.0,352.7 96.7,344.7 94.0,342.0C91.3,339.3 81.0,339.3 78.0,342.0Z"]};
+const AB={traps:["M74.0,62.0C69.2,64.0 69.7,70.0 69.0,74.0C68.3,78.0 69.3,83.0 70.0,86.0C70.7,89.0 68.3,91.0 73.0,92.0C77.7,93.0 93.8,93.0 98.0,92.0C102.2,91.0 98.0,89.0 98.0,86.0C98.0,83.0 98.0,78.0 98.0,74.0C98.0,70.0 102.0,64.0 98.0,62.0C94.0,60.0 78.8,60.0 74.0,62.0Z"],delts:["M56.0,64.0C51.7,66.0 47.0,71.7 44.0,76.0C41.0,80.3 39.0,85.3 38.0,90.0C37.0,94.7 37.2,99.7 38.0,104.0C38.8,108.3 39.0,114.0 43.0,116.0C47.0,118.0 58.8,118.0 62.0,116.0C65.2,114.0 62.0,108.3 62.0,104.0C62.0,99.7 61.7,94.7 62.0,90.0C62.3,85.3 62.7,80.3 64.0,76.0C65.3,71.7 71.3,66.0 70.0,64.0C68.7,62.0 60.3,62.0 56.0,64.0Z"],lats:["M63.0,94.0C60.0,96.7 61.8,104.3 62.0,110.0C62.2,115.7 62.7,121.7 64.0,128.0C65.3,134.3 68.0,141.3 70.0,148.0C72.0,154.7 73.5,164.7 76.0,168.0C78.5,171.3 83.8,171.3 85.0,168.0C86.2,164.7 83.5,154.7 83.0,148.0C82.5,141.3 82.3,134.3 82.0,128.0C81.7,121.7 81.3,115.7 81.0,110.0C80.7,104.3 83.0,96.7 80.0,94.0C77.0,91.3 66.0,91.3 63.0,94.0Z"],rhomboids:["M82.0,94.0C79.2,96.3 81.0,103.3 81.0,108.0C81.0,112.7 79.2,119.7 82.0,122.0C84.8,124.3 95.3,124.3 98.0,122.0C100.7,119.7 98.0,112.7 98.0,108.0C98.0,103.3 100.7,96.3 98.0,94.0C95.3,91.7 84.8,91.7 82.0,94.0Z"],erectors:["M83.0,126.0C80.7,129.7 83.7,140.7 84.0,148.0C84.3,155.3 85.0,162.7 85.0,170.0C85.0,177.3 81.8,188.3 84.0,192.0C86.2,195.7 95.7,195.7 98.0,192.0C100.3,188.3 98.0,177.3 98.0,170.0C98.0,162.7 98.0,155.3 98.0,148.0C98.0,140.7 100.5,129.7 98.0,126.0C95.5,122.3 85.3,122.3 83.0,126.0Z"],triceps:["M43.0,122.0C40.2,124.7 44.2,132.7 45.0,138.0C45.8,143.3 47.0,148.7 48.0,154.0C49.0,159.3 50.0,165.7 51.0,170.0C52.0,174.3 52.5,178.3 54.0,180.0C55.5,181.7 59.0,181.7 60.0,180.0C61.0,178.3 60.0,174.3 60.0,170.0C60.0,165.7 59.8,159.3 60.0,154.0C60.2,148.7 60.7,143.3 61.0,138.0C61.3,132.7 65.0,124.7 62.0,122.0C59.0,119.3 45.8,119.3 43.0,122.0Z"],forearms:["M53.0,186.0C51.0,188.7 51.2,196.7 51.0,202.0C50.8,207.3 51.2,212.3 52.0,218.0C52.8,223.7 54.5,230.3 56.0,236.0C57.5,241.7 59.5,249.3 61.0,252.0C62.5,254.7 64.7,254.7 65.0,252.0C65.3,249.3 63.2,241.7 63.0,236.0C62.8,230.3 63.8,223.7 64.0,218.0C64.2,212.3 64.2,207.3 64.0,202.0C63.8,196.7 64.8,188.7 63.0,186.0C61.2,183.3 55.0,183.3 53.0,186.0Z"],glutes:["M70.0,200.0C64.8,202.0 67.5,208.0 67.0,212.0C66.5,216.0 66.5,220.3 67.0,224.0C67.5,227.7 65.2,232.3 70.0,234.0C74.8,235.7 91.5,235.7 96.0,234.0C100.5,232.3 96.7,227.7 97.0,224.0C97.3,220.3 97.8,216.0 98.0,212.0C98.2,208.0 102.7,202.0 98.0,200.0C93.3,198.0 75.2,198.0 70.0,200.0Z"],hams:["M69.0,240.0C64.5,243.3 68.7,253.3 69.0,260.0C69.3,266.7 70.0,273.3 71.0,280.0C72.0,286.7 73.5,294.3 75.0,300.0C76.5,305.7 77.0,311.7 80.0,314.0C83.0,316.3 90.7,316.3 93.0,314.0C95.3,311.7 93.7,305.7 94.0,300.0C94.3,294.3 94.8,286.7 95.0,280.0C95.2,273.3 94.8,266.7 95.0,260.0C95.2,253.3 100.3,243.3 96.0,240.0C91.7,236.7 73.5,236.7 69.0,240.0Z"],calves:["M78.0,342.0C75.0,344.7 76.2,352.7 76.0,358.0C75.8,363.3 76.2,369.0 77.0,374.0C77.8,379.0 79.7,384.0 81.0,388.0C82.3,392.0 82.8,396.3 85.0,398.0C87.2,399.7 92.5,399.7 94.0,398.0C95.5,396.3 94.0,392.0 94.0,388.0C94.0,384.0 94.0,379.0 94.0,374.0C94.0,369.0 94.0,363.3 94.0,358.0C94.0,352.7 96.7,344.7 94.0,342.0C91.3,339.3 81.0,339.3 78.0,342.0Z"]};
+const ALAB={"F": {"traps": (64, "R"), "delts": (94, "L"), "chest": (100, "R"), "biceps": (150, "L"), "forearms": (214, "L"), "core": (166, "R"), "quads": (258, "R"), "calves": (368, "R")}, "B": {"traps": (72, "R"), "delts": (96, "L"), "rhomboids": (110, "R"), "lats": (140, "R"), "erectors": (186, "R"), "triceps": (152, "L"), "forearms": (222, "L"), "glutes": (216, "R"), "hams": (274, "R"), "calves": (368, "R")}};
+
+function amirror(d){return d.replace(/(-?[\d.]+),(-?[\d.]+)/g,
+  (m,x,y)=>(200-parseFloat(x)).toFixed(1)+','+(+y).toFixed(1))}
+
+/* ---- BACK SUB-REGIONS ----
+   Juan could only see "two big groups" on the back. It now draws the regions a
+   lifter actually thinks in: upper traps, rhomboids, lats and erectors. The
+   exercise library only tags "back" as a single muscle, so rather than invent
+   per-region tags for ~140 movements, the split is derived from MOVEMENT
+   PATTERN, which is where the emphasis genuinely comes from:
+     vertical pull (pull-up, pulldown, pullover)      -> lats
+     horizontal pull (any row, face pull, rear delt)  -> rhomboids / mid back
+     hinge & extension (deadlift, RDL, good morning,
+       hyperextension, Jefferson curl, back ext)      -> erectors
+   Anything back-ish that matches nothing is split evenly, so no set is lost. */
+const BACKPAT=[
+  ['lats',      /pull-?up|pulldown|pullover|chin-?up|lat |muscle-?up|false grip|hang/i],
+  ['rhomboids', /row|face pull|rear delt|shrug|scap|pull-?apart|reverse fly/i],
+  ['erectors',  /deadlift|romanian|good morning|hyper ?ext|jefferson|back ext|rack pull|swing|clean|snatch|high pull/i]];
+function backRegion(name){
+  for(const [k,re] of BACKPAT)if(re.test(name))return k;
+  return null;
 }
-function figFront(v){return figure(AF,v,'Front')}
-function figBack(v){return figure(AB,v,'Back')}
+/* Weighted back sets, split into the three regions. */
+function backSplit(days){
+  const out={lats:0,rhomboids:0,erectors:0};
+  const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
+  eachSession((k,l)=>{
+    if(k<cut)return;
+    (l.ex||[]).forEach(e=>{
+      if(e.skip||e.warm)return;
+      const ms=(EX[e.n]&&EX[e.n].m)||[]; const i=ms.indexOf('back');
+      if(i<0)return;
+      const n=(e.sets||[]).filter(s=>s.done).length; if(!n)return;
+      const w=n*(WT[i]!==undefined?WT[i]:.25);
+      const r=backRegion(e.n);
+      if(r)out[r]+=w; else {out.lats+=w/3;out.rhomboids+=w/3;out.erectors+=w/3}});
+  });
+  Object.keys(out).forEach(k=>out[k]=Math.round(out[k]*10)/10);
+  return out;
+}
+/* Each region is judged against its share of the back MRV, so a lat-only week
+   still reads as "lats in range, erectors under" rather than one flat colour. */
+const BACKSHARE={lats:.45,rhomboids:.35,erectors:.20};
+function subLand(k){const L=LAND.back,s=BACKSHARE[k];
+  return [L[0]*s,L[1]*s,L[2]*s]}
+
+/* Shade level 0..4 for a muscle against its own landmarks. Level 0 is now a
+   VISIBLE grey block, not an invisible outline — that was the whole reason the
+   v4 chart was unreadable. */
+function heatLv(v,L){
+  L=L||[6,10,20];
+  if(!v||v<=0)return 0;
+  if(v<L[0])return 1;
+  if(v<L[1])return 2;
+  if(v<=L[2])return 3;
+  return 4;
+}
+const SHADE=[['var(--mus0)',1],['var(--acc)',.38],['var(--acc)',.68],
+             ['var(--acc)',.96],['var(--warn)',.96]];
+function heatFill(v,m){return SHADE[heatLv(v,LAND[m])]}
+
+/* Which muscle the user last tapped, so the caption under the figure can name
+   it. Tapping is how a muscle is identified — the labels are deliberately not
+   drawn on the figure, which keeps it clean at phone size. */
+let APICK=null;
+function pickMus(k){APICK=(APICK===k)?null:k;render()}
+function musName(k){return MUSN[k]||{lats:'Lats',rhomboids:'Rhomboids',
+  erectors:'Erectors / lower back'}[k]||k}
+/* Sets and landmark for any region, including the derived back sub-regions. */
+function musVal(k,v,bs){
+  if(k==='lats'||k==='rhomboids'||k==='erectors')return [bs[k]||0,subLand(k)];
+  return [v[k]||0,LAND[k]||[6,10,20]];
+}
+
+function figure(parts,v,bs,label,side){
+  let o='<svg viewBox="0 0 200 442" width="100%" role="img" aria-label="'+label
+    +' view muscle map">';
+  /* non-muscle filler: head, neck, hands, knees, feet */
+  AFILL.forEach(d=>{[d,amirror(d)].forEach(dd=>{
+    o+='<path d="'+dd+'" fill="var(--musf)" stroke="var(--bg)" stroke-width="1.6"/>';});});
+  for(const m in parts){
+    const mv=musVal(m,v,bs), lv=heatLv(mv[0],mv[1]), sh=SHADE[lv];
+    const on=(APICK===m);
+    parts[m].forEach(d=>{[d,amirror(d)].forEach(dd=>{
+      /* the dark stroke IS the gap between muscles — it is what makes each
+         group read as its own identifiable region */
+      o+='<path d="'+dd+'" fill="'+sh[0]+'" fill-opacity="'+sh[1]
+        +'" stroke="'+(on?'var(--tx)':'var(--bg)')+'" stroke-width="'+(on?2.2:1.6)
+        +'" stroke-linejoin="round" style="cursor:pointer"'
+        +' onclick="pickMus(\''+m+'\')"><title>'+musName(m)+' — '+mv[0]+' sets</title></path>';});});
+  }
+  o+='<text x="100" y="438" text-anchor="middle" font-size="12" font-weight="700" '
+    +'fill="var(--tx3)">'+label+'</text>';
+  return o+'</svg>';
+}
+function figFront(v,bs){return figure(AF,v,bs||{},'FRONT','F')}
+function figBack(v,bs){return figure(AB,v,bs||{},'BACK','B')}
 let HEATDAYS=7;
 function setHeat(d){HEATDAYS=d;render()}
 
@@ -239,16 +349,47 @@ function estKcal(kind,min){const C=CARDIO[kind];if(!C||!min)return 0;
   return Math.round(C.met*(D.settings.weight||84)*(min/60));}
 function pace(km,min){if(!km||!min)return '';const p=min/km;
   return Math.floor(p)+':'+String(Math.round((p%1)*60)).padStart(2,'0')+' /km';}
-function dayKcal(k){const l=D.logs[k];return l&&l.done?(+l.kcal||0):0}
+function dayKcal(k){return dayLogs(k).reduce((a,l)=>a+(l.done?(+l.kcal||0):0),0)}
 function kcalOver(days){let t=0;const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
   for(const k in D.logs){if(k>=cut)t+=dayKcal(k)}return t}
 function avgEffort(days){const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
-  const es=[];for(const k in D.logs){const l=D.logs[k];
-    if(k>=cut&&l.done&&l.effort)es.push(+l.effort)}
+  const es=[];eachSession((k,l)=>{
+    if(k>=cut&&l.done&&l.effort)es.push(+l.effort)});
   return es.length?(es.reduce((a,b)=>a+b,0)/es.length):0}
 
 /* ================= STREAKS ================= */
 function jDone(k){const j=D.journal[k];if(!j)return 0;return JOURNAL.filter(x=>j[x.k]).length}
+/* ---- TRAINING STREAK ----
+   The old "Streak" card counted the 12-item daily protocol and needed 9 of them
+   ticked, so two workouts in a day still read 0 — which is exactly what confused
+   Juan. It now counts CONSECUTIVE TRAINING DAYS.
+
+   A PROGRAMMED rest day does not break the streak: the schedule says not to
+   train, so obeying it is not a failure. It bridges rather than counts — a rest
+   day carries the streak across without incrementing it, so the number stays an
+   honest count of days actually trained. An unplanned skip still breaks it. */
+function trainedOn(k){return dayLogs(k).some(l=>l&&l.done)}
+function isRestDay(d){
+  const p=curP();
+  if(!p||!p.schedule)return false;
+  /* which slot the programme prescribes for that calendar day */
+  const slot=p.schedule[(d.getDay()+6)%7];
+  return slot==='rest';
+}
+function trainStreak(){
+  let n=0,d=new Date(),guard=0;
+  /* today not being trained yet is not a break — start from yesterday */
+  if(!trainedOn(todayISO(d))&&!isRestDay(d))d=new Date(d.getTime()-864e5);
+  for(;;){
+    if(guard++>800)break;
+    const k=todayISO(d);
+    if(trainedOn(k)){n++}
+    else if(isRestDay(d)){/* programmed rest — bridge, do not count */}
+    else break;
+    d=new Date(d.getTime()-864e5);
+  }
+  return n;
+}
 function streak(){let n=0,d=new Date();
   if(jDone(todayISO(d))<JOURNAL.length*0.75)d=new Date(d.getTime()-864e5);
   for(;;){const k=todayISO(d); if(jDone(k)>=JOURNAL.length*0.75){n++;d=new Date(d.getTime()-864e5)}else break; if(n>999)break}
@@ -379,7 +520,8 @@ function render(){
 /* ================= TODAY ================= */
 function rToday(){
   const p=curP(),w=curWeek(),b=blockFor(p,w),slot=slotFor(),s=sessFor(),k=todayISO();
-  const log=D.logs[k],dn=log&&log.done;
+  /* a day is an array of sessions — "done" means at least one is finished */
+  const dayL=dayLogs(k),dn=dayL.some(l=>l&&l.done);
   let h='';
 
   if(slot==='rest'){
@@ -402,9 +544,10 @@ function rToday(){
     </div>`;
   }
 
-  const jd=jDone(k),st=streak();
+  const jd=jDone(k),ts=trainStreak(),nToday=todayLogs().filter(l=>l.done).length;
   h+=`<div class="grid3" style="margin-bottom:10px">
-    <div class="stat acc"><div class="tiny">Streak</div><div class="big">${st}</div></div>
+    <div class="stat acc"><div class="tiny">Training streak</div><div class="big">${ts}</div>
+      <div class="jm" style="margin-top:2px">${nToday?nToday+' today':(isRestDay(new Date())?'Rest day — held':'Train to extend')}</div></div>
     <div class="stat ice"><div class="tiny">Protocol</div><div class="big">${jd}<span style="font-size:15px;color:var(--tx3)">/${JOURNAL.length}</span></div></div>
     <div class="stat grn"><div class="tiny">Block</div><div class="big">${progPct()}<span style="font-size:15px;color:var(--tx3)">%</span></div></div>
   </div>`;
@@ -461,8 +604,19 @@ function rTrain(){
       <button class="btn p" onclick="newWorkout()">Create a workout</button>`;
     document.getElementById('v-train').innerHTML=h;return;
   }
-  D.logs[k]=D.logs[k]||{sid:todaySid()||slot,pid:p.id,week:w,ex:[],done:false,start:Date.now()};
-  const log=D.logs[k];
+  const day=dayLogs(k);D.logs[k]=day;
+  if(!day.length)day.push({sid:todaySid()||slot,pid:p.id,week:w,ex:[],done:false,start:Date.now()});
+  const log=day[curIdx()];
+
+  /* SESSION CHIPS — one per workout logged today. This is what makes a second
+     workout possible at all: each chip is its own session with its own sets,
+     and switching between them never touches the other. */
+  if(day.length>1||day[0].done){
+    h+=`<div class="tabs" style="margin-bottom:10px">`
+      +day.map((l,i)=>`<button class="tab ${i===curIdx()?'on':''}" onclick="setSess(${i})">
+         ${esc(sessLabel(l))}${l.done?' ✓':''}</button>`).join('')
+      +`<button class="tab" onclick="open_('addsess')" style="color:var(--acc2)">+ Session</button></div>`;
+  }
   const EXS=s.ex.concat(log.extra||[]);   // programme exercises + anything added today
   EXS.forEach(ex=>{if(!log.ex.find(x=>x.n===ex.n)){
     log.ex.push({n:ex.n,sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))})}});
@@ -517,8 +671,8 @@ function rTrain(){
         <div class="st" style="color:var(--tx3);font-size:11px"><span></span><span class="u">KG</span><span class="u">REPS</span><span class="u">REST</span><span class="u"></span><span class="u"></span></div>`;
     L.sets.forEach((st,j)=>{
       h+=`<div class="st"><span>${j+1}</span>
-        <input type="text" inputmode="decimal" placeholder="—" value="${esc(st.w)}" onchange="setV(${i},${j},'w',this.value)"
-          class="${isBW(st.w)?'bw':''}" title="${isBW(st.w)?'Bodyweight':''}">
+        <input type="text" inputmode="decimal" placeholder="—" value="${esc(wDisp(st.w))}" onchange="setV(${i},${j},'w',this.value)"
+          class="${isBW(st.w)?'bw':''}" title="${isBW(st.w)?'Bodyweight — type 1':''}">
         <input type="text" inputmode="numeric" placeholder="—" value="${esc(st.r)}" onchange="setV(${i},${j},'r',this.value)">
         <span class="rsc" title="Rest actually taken">${st.rs!==undefined?esc(restTxt(st.rs)):''}</span>
         <button class="tick ${st.done?'on':''}" onclick="setDone(${i},${j},${ex.rest||0})">${CHK}</button>
@@ -561,14 +715,26 @@ function rTrain(){
   document.getElementById('v-train').innerHTML=h;
 }
 function tgl(i){const e=document.getElementById('exb'+i);e.style.display=e.style.display==='none'?'block':'none'}
-function curLog(){return D.logs[todayISO()]}
-function setV(i,j,f,v){const l=curLog();l.ex[i].sets[j][f]=v;save()}
-function cardioSet(i,f,v){const l=curLog();l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;save()}
-function cardioDone(i){const l=curLog(),c=l.ex[i].c=l.ex[i].c||{};
+/* The weight field DISPLAYS "BW" but STORES the 1 sentinel. Accept either on
+   the way in, so re-saving a field that already reads BW does not corrupt it —
+   that round-trip is why 1=BW appeared to work in history but not live. */
+function normW(v){const t=String(v==null?'':v).trim();
+  if(/^bw$/i.test(t))return '1';
+  return t}
+function setV(i,j,f,v){const l=curLog();if(!l)return;
+  l.ex[i].sets[j][f]=(f==='w')?normW(v):v;save()}
+function cardioSet(i,f,v){const l=curLog();if(!l||!l.ex[i])return;
+  l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;save()}
+function cardioDone(i){const l=curLog();if(!l||!l.ex[i])return;
+  const c=l.ex[i].c=l.ex[i].c||{};
   c.done=!c.done;
-  if(c.done&&!c.kcal){const ex=(sessFor().ex.concat(l.extra||[]))[i];c.kcal=estKcal(ex.k,fVal('min',c.min))}
+  /* sessFor() is null if the session behind this log no longer resolves */
+  if(c.done&&!c.kcal){const sf=sessFor();
+    const ex=sf?(sf.ex.concat(l.extra||[]))[i]:null;
+    if(ex)c.kcal=estKcal(ex.k,fVal('min',c.min))}
   save();rTrain()}
-function setDone(i,j,rest){const l=curLog(),st=l.ex[i].sets[j];st.done=!st.done;
+function setDone(i,j,rest){const l=curLog();if(!l||!l.ex[i])return;
+  const st=l.ex[i].sets[j];st.done=!st.done;
   if(st.done&&rest)tStart(rest,i,j);save();rTrain()}
 
 /* ---- IN-SESSION EXERCISE OPTIONS (the 3-dot menu) ----
@@ -598,11 +764,15 @@ function exWarm(i){const l=curLog();l.ex[i].warm=!l.ex[i].warm;save();close_();r
 function exDel(i){const l=curLog();
   if(!confirm('Remove this exercise from today\'s session?'))return;
   l.ex.splice(i,1);delete l.order;save();close_();rTrain()}
-function addSet(i){curLog().ex[i].sets.push({w:'',r:'',done:false});save();rTrain()}
-function delSet(i,j){const s=curLog().ex[i].sets;if(s.length>1)s.splice(j,1);save();rTrain()}
+function addSet(i){const l=curLog();if(!l||!l.ex[i])return;
+  l.ex[i].sets.push({w:'',r:'',done:false});save();rTrain()}
+function delSet(i,j){const l=curLog();if(!l||!l.ex[i])return;
+  const s=l.ex[i].sets;if(s.length>1)s.splice(j,1);save();rTrain()}
 function logSet(f,v){const l=curLog();if(l){l[f]=v;save()}}
 function finish(){
-  const l=curLog();l.done=true;l.dur=Math.round((Date.now()-(l.start||Date.now()))/1000);
+  /* curLog() is null if midnight rolled over with the Train view open */
+  const l=curLog();if(!l){go('train');return}
+  l.done=true;l.dur=Math.round((Date.now()-(l.start||Date.now()))/1000);
   /* calories: whatever Juan entered, else cardio entries, else a lifting estimate */
   let ck=l.ex.reduce((a,e)=>a+(e.c&&+e.c.kcal||0),0);
   if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
@@ -615,13 +785,30 @@ function finish(){
   save();open_('done')}
 function rescue(){open_('rescue')}
 /* Load ANY session as today's session — programme, custom or rescue. */
-function freeSession(id){const k=todayISO();
-  D.logs[k]={sid:id,pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),free:true};
+/* Open a session for today.
+
+   THIS MUST NEVER DESTROY LOGGED WORK. Every "Start" button in More routes here
+   and they are all advertised as "run this as a second workout for the day" —
+   so the only case where reusing the current slot is safe is when that slot is
+   genuinely empty. Anything with a logged set, finished or not, gets a NEW
+   session appended alongside it. Overwriting an unfinished session is the exact
+   data loss this release exists to fix; it was still live on this path. */
+function hasWork(l){return !!(l&&(l.done||(l.ex||[]).some(e=>
+  (e.sets||[]).some(s=>s.done)||(e.c&&e.c.done))))}
+function freeSession(id){const k=todayISO(),a=dayLogs(k);
+  D.logs[k]=a;
+  const l={sid:id,pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),free:true};
+  const cur=a.length?a[curIdx()]:null;
+  if(!a.length){a.push(l);setIdx(0)}
+  else if(hasWork(cur)){a.push(l);setIdx(a.length-1)}    // append, never clobber
+  else a[curIdx()]=l;                                    // empty slot — safe to reuse
   save();go('train')}
-function clearToday(){const k=todayISO();
-  if(D.logs[k]&&D.logs[k].ex.some(e=>e.sets.some(s=>s.done))
+function clearToday(){const k=todayISO(),a=dayLogs(k),l=a[curIdx()];
+  if(l&&l.ex.some(e=>e.sets.some(s=>s.done))
      &&!confirm('This session has logged sets. Clear it and pick another?'))return;
-  delete D.logs[k];save();go('train')}
+  a.splice(curIdx(),1);
+  if(!a.length)delete D.logs[k];
+  setIdx(0);go('train')}
 
 /* ---- Custom workout builder ---- */
 let BUILD=null;
@@ -691,7 +878,7 @@ function addFood(n,g){const F=FOOD.find(x=>x.n===n);if(!F||!g)return;
 
 /* ================= PROGRESS ================= */
 function rProg(){
-  const v=volume(HEATDAYS),p=curP(),w=curWeek();
+  const v=volume(HEATDAYS),bs=backSplit(HEATDAYS),p=curP(),w=curWeek();
   let h=`<div class="card"><div class="row sp"><div class="lbl" style="margin:0">${esc(p.name)}</div>
     <span class="pill a">Week ${w} of ${p.weeks}</span></div>
     <div class="bar" style="margin:10px 0 9px"><i style="width:${progPct()}%"></i></div>
@@ -705,17 +892,34 @@ function rProg(){
       <button class="tab ${HEATDAYS===30?'on':''}" onclick="setHeat(30)">30 days</button></div>
     <div class="card" style="padding:10px 8px 4px">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px">
-        <div>${figFront(v)}</div><div>${figBack(v)}</div></div>
-      <div class="row" style="gap:12px;flex-wrap:wrap;justify-content:center;padding:8px 4px 10px;border-top:1px solid var(--bd);margin-top:4px">
-        ${[['Untrained','var(--s3)',.55],['Maintaining','var(--acc)',.22],['Building','var(--acc)',.45],['In range','var(--acc)',.95],['Over','var(--warn)',.95]]
+        <div>${figFront(v,bs)}</div><div>${figBack(v,bs)}</div></div>`;
+  /* Caption for the tapped muscle. Labels are not drawn on the figure — that
+     keeps it clean at phone size — so this line is how a muscle is identified. */
+  if(APICK){const mv=musVal(APICK,v,bs),st=volState2(mv[0],mv[1]);
+    h+=`<div class="tgt" style="margin:2px 8px 8px">${esc(musName(APICK))} — <b>${mv[0]}</b> sets · ${st[0]}
+      <span style="color:var(--tx3)"> · target ${Math.round(mv[1][1])}–${Math.round(mv[1][2])}</span></div>`;}
+  else h+=`<div class="jm" style="text-align:center;padding:0 8px 8px">Tap any muscle to name it and see its set count.</div>`;
+  h+=`<div class="row" style="gap:12px;flex-wrap:wrap;justify-content:center;padding:8px 4px 10px;border-top:1px solid var(--bd);margin-top:4px">
+        ${[['Untrained','var(--mus0)',1],['Maintaining','var(--acc)',.38],['Building','var(--acc)',.68],['In range','var(--acc)',.96],['Over','var(--warn)',.96]]
           .map(l=>`<span class="row" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:${l[1]};opacity:${l[2]}"></span><span style="font-size:11px;color:var(--tx3)">${l[0]}</span></span>`).join('')}
       </div></div>
-    <div class="note" style="margin-bottom:10px">Each muscle is shaded against its own landmarks, not one shared number — back and core recover from far more volume than biceps or calves. Tap any number below for the count.</div>
+    <div class="note" style="margin-bottom:10px">Each muscle is shaded against its own landmarks, not one shared number — back and core recover from far more volume than biceps or calves.</div>
+    <div class="sec" style="margin:14px 0 8px">Back detail</div>
     <div class="hm">`;
-  MUS.forEach(m=>{const s=volState(v[m],m);
-    h+=`<div class="hmc"><div class="n">${MUSN[m]}</div>
+  ['lats','rhomboids','erectors'].forEach(m=>{const st=volState2(bs[m]||0,subLand(m));
+    h+=`<div class="hmc" onclick="pickMus('${m}')" style="cursor:pointer${APICK===m?';border-color:var(--acc)':''}">
+      <div class="n">${musName(m)}</div>
+      <div class="row sp"><span class="v mono">${bs[m]||0}</span>
+      <span style="font-size:10px;font-weight:700;color:${st[1]}">${st[0]}</span></div></div>`});
+  h+=`</div>
+    <div class="jm" style="margin:6px 0 10px">Back regions are worked out from the movement — vertical pulls load the lats, rows the rhomboids, hinges the erectors. They add up to your total back volume.</div>
+    <div class="sec" style="margin:14px 0 8px">All muscles</div>
+    <div class="hm">`;
+  MUS.forEach(m=>{const st=volState(v[m],m);
+    h+=`<div class="hmc" onclick="pickMus('${m}')" style="cursor:pointer${APICK===m?';border-color:var(--acc)':''}">
+      <div class="n">${MUSN[m]}</div>
       <div class="row sp"><span class="v mono">${v[m]}</span>
-      <span style="font-size:10px;font-weight:700;color:${s[1]}">${s[0]}</span></div></div>`});
+      <span style="font-size:10px;font-weight:700;color:${st[1]}">${st[0]}</span></div></div>`});
   h+=`</div>`;
 
   h+=`<div class="sec">Output</div><div class="grid3">
@@ -723,8 +927,8 @@ function rProg(){
     <div class="stat amb"><div class="tiny">Kcal 30d</div><div class="big mono">${fmt(kcalOver(30))}</div></div>
     <div class="stat ice"><div class="tiny">Avg effort</div><div class="big mono">${avgEffort(30)?fmt(avgEffort(30),1):'\u2014'}</div></div></div>`;
 
-  const wk=Object.keys(D.logs).filter(k=>D.logs[k].done).length;
-  const dur=Object.values(D.logs).filter(l=>l.done&&l.dur).map(l=>l.dur);
+  let wk=0;eachSession((k,l)=>{if(l.done)wk++});
+  const dur=[];eachSession((k,l)=>{if(l.done){const m=+l.mins||(l.dur?l.dur/60:0);if(m)dur.push(m*60)}});
   h+=`<div class="sec">Totals</div><div class="grid3">
     <div class="card flat" style="margin:0"><div class="tiny">Sessions</div><div class="big">${wk}</div></div>
     <div class="card flat" style="margin:0"><div class="tiny">Avg mins</div><div class="big">${dur.length?fmt(dur.reduce((a,b)=>a+b,0)/dur.length/60):'—'}</div></div>
@@ -760,10 +964,10 @@ function rProg(){
   h+=`<div class="sec">Workout history</div>
     <button class="btn gh" style="margin-bottom:10px" onclick="retroNew()">+ Log a workout you've already done</button>`;
   if(hist.length){
-    h+=hist.slice(0,40).map(r=>`<div class="tst" onclick="histOpen('${r.d}')">
+    h+=hist.slice(0,40).map(r=>`<div class="tst" onclick="histOpen('${r.d}',${r.i})">
       <div style="flex:1">
-        <div style="font-weight:600;font-size:14px">${esc(r.n)}${r.l.retro?' <span class="pill">logged after</span>':''}</div>
-        <div class="jm">${esc(r.d)} · ${r.sets} sets${r.vol?' · '+fmt(r.vol)+'kg volume':''}${r.kcal?' · '+r.kcal+' kcal':''}${r.hr?' · '+r.hr+' bpm':''}${r.effort?' · effort '+r.effort:''}</div></div>
+        <div style="font-weight:600;font-size:14px">${esc(r.n)}${r.l.retro?' <span class="pill">logged after</span>':''}${r.i>0?' <span class="pill a">#'+(r.i+1)+'</span>':''}</div>
+        <div class="jm">${esc(r.d)}${r.at?' · '+esc(r.at):''} · ${r.sets} sets${r.mins?' · '+r.mins+' min':''}${r.vol?' · '+fmt(r.vol)+'kg':''}${r.kcal?' · '+r.kcal+' kcal':''}${r.hr?' · '+r.hr+' bpm':''}${r.effort?' · effort '+r.effort:''}</div></div>
       <span style="color:var(--tx3)">›</span></div>`).join('');
     if(hist.length>40)h+=`<div class="jm" style="margin-top:6px">Showing the last 40 of ${hist.length} logged sessions.</div>`;
   }else{
@@ -815,6 +1019,14 @@ function rMore(){
       <div style="font-weight:600;font-size:14px">${esc(c.n)}</div>
       <div class="jm">${c.seq.map(x=>x[1]+' '+esc(x[0].replace(/^KB /,''))).join(' · ')} · ${c.rounds} rounds</div></div>
       <button class="btn sm gh" onclick="startKbx('${k}')">Start</button></div>`});
+
+  h+=`<div class="sec">Calisthenics workouts</div>
+    <div class="note" style="margin-bottom:10px">The named sessions out of your Hard to Kill note. The scored ones double as benchmarks \u2014 finish one and log the score under Progress.</div>`;
+  CALORDER.forEach(k=>{const c=CAL[k];
+    h+=`<div class="tst"><div style="flex:1" onclick="open_('cal','${k}')">
+      <div style="font-weight:600;font-size:14px">${esc(c.n)}${c.bench?' <span class="pill a">Benchmark</span>':''}</div>
+      <div class="jm">${esc(c.kind)} \u00b7 ${c.ex.length} movements \u00b7 ~${c.mins} min</div></div>
+      <button class="btn sm gh" onclick="startCal('${k}')">Start</button></div>`});
 
   h+=`<div class="sec">Striking</div>
     <div class="note" style="margin-bottom:10px">Long bag and gloves. Run one as your sport day, your conditioning, or a second session.</div>`;
@@ -884,24 +1096,38 @@ function libFilter(q){
    done — he had to start one and play through it, which is why the log kept
    drifting from reality; (2) once logged, nothing could be corrected. */
 function historyList(){
-  return Object.keys(D.logs).filter(k=>D.logs[k]&&D.logs[k].done)
-    .sort().reverse().map(k=>{
-      const l=D.logs[k],s=sessById(l.sid);
+  /* ONE ROW PER SESSION. Keying history by date alone is what hid Juan's
+     second workout of the day. */
+  const rows=[];
+  Object.keys(D.logs).sort().reverse().forEach(k=>{
+    dayLogs(k).forEach((l,i)=>{
+      if(!l||!l.done)return;
       const sets=(l.ex||[]).reduce((a,e)=>a+(e.sets||[]).filter(x=>x.done).length,0);
       const vol=(l.ex||[]).reduce((a,e)=>a+(e.sets||[]).filter(x=>x.done)
         .reduce((b,x)=>b+(isBW(x.w)?0:pnum(x.w))*(+x.r||0),0),0);
-      return{d:k,l:l,n:(s&&s.n)||l.name||'Session',sets:sets,vol:Math.round(vol),
-        kcal:+l.kcal||0,hr:+l.hr||0,effort:+l.effort||0};});
+      rows.push({d:k,i:i,l:l,n:sessLabel(l),sets:sets,vol:Math.round(vol),
+        kcal:+l.kcal||0,hr:+l.hr||0,effort:+l.effort||0,
+        mins:+l.mins||(l.dur?Math.round(l.dur/60):0),at:l.at||''});});});
+  return rows;
 }
-function histOpen(d){open_('hist',d)}
-function histField(d,f,v){const l=D.logs[d];if(!l)return;l[f]=v;save()}
-function histSetV(d,i,j,f,v){const l=D.logs[d];if(!l)return;l.ex[i].sets[j][f]=v;save()}
-function histDel(d){if(!confirm('Delete this logged session? It comes out of your volume and calorie totals.'))return;
-  delete D.logs[d];save();close_();go('prog')}
+/* Sessions are addressed as "date|index" so history can edit the right one of
+   several workouts on the same day. */
+function histOpen(d,i){open_('hist',d+'|'+i)}
+function histRef(key){const [d,i]=String(key).split('|');
+  return{d:d,i:+i||0,l:dayLogs(d)[+i||0]}}
+function histField(key,f,v){const r=histRef(key);if(r.l){r.l[f]=v;save()}}
+function histSetV(key,i,j,f,v){const r=histRef(key);
+  if(r.l&&r.l.ex[i])
+    {r.l.ex[i].sets[j][f]=(f==='w')?normW(v):v;save()}}
+function histDel(key){const r=histRef(key);if(!r.l)return;
+  if(!confirm('Delete this logged session? It comes out of your volume and calorie totals.'))return;
+  const a=dayLogs(r.d);a.splice(r.i,1);
+  if(!a.length)delete D.logs[r.d];
+  save();close_();go('prog')}
 
 /* ---- Log a session that has already happened ---- */
 let RETRO=null;
-function retroNew(){RETRO={d:todayISO(),sid:'',ex:[],kcal:'',hr:'',effort:''};open_('retro')}
+function retroNew(){RETRO={d:todayISO(),sid:'',ex:[],kcal:'',hr:'',effort:'',mins:'',at:''};open_('retro')}
 function retroSet(f,v){RETRO[f]=v;if(f==='sid')retroLoad(v);else open_('retro')}
 function retroLoad(sid){const s=sessById(sid);
   RETRO.ex=s?s.ex.filter(e=>!e.k).map(e=>({n:e.n,s:setsFor(e,0),w:'',r:''})):[];
@@ -912,17 +1138,18 @@ function retroDel(i){RETRO.ex.splice(i,1);open_('retro')}
 function retroSave(){
   if(!RETRO.d){alert('Pick the date it happened.');return}
   if(!RETRO.ex.length){alert('Add at least one exercise.');return}
-  if(D.logs[RETRO.d]&&D.logs[RETRO.d].done
-     &&!confirm('There is already a logged session on '+RETRO.d+'. Replace it?'))return;
+  /* ADDS a session to that day. It must never replace what is already there —
+     overwriting is exactly the bug this release fixes. */
   const l={sid:RETRO.sid||'',pid:D.active.id,week:curWeek(),done:true,retro:true,
-    start:new Date(RETRO.d).getTime(),ex:[],kcal:pnum(RETRO.kcal),hr:pnum(RETRO.hr),effort:pnum(RETRO.effort)};
+    start:new Date(RETRO.d).getTime(),ex:[],kcal:pnum(RETRO.kcal),hr:pnum(RETRO.hr),
+    effort:pnum(RETRO.effort),mins:ptime(RETRO.mins),at:RETRO.at||''};
   RETRO.ex.forEach(e=>{
     const n=Math.max(1,+e.s||1),sets=[];
     for(let i=0;i<n;i++)sets.push({w:e.w,r:e.r,done:true});
     l.ex.push({n:e.n,sets:sets});});
   if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.length,0);
     l.kcal=Math.round(sets*(D.settings.weight||84)*0.11)}
-  D.logs[RETRO.d]=l;
+  const day=dayLogs(RETRO.d);D.logs[RETRO.d]=day;day.push(l);
   D.journal[RETRO.d]=D.journal[RETRO.d]||{};D.journal[RETRO.d].workout=true;
   l.ex.forEach(e=>{e.sets.forEach(x=>{
     if(!isBW(x.w)&&pnum(x.w)>0&&(!D.pbs[e.n]||pnum(x.w)>+D.pbs[e.n].w))
@@ -1019,6 +1246,26 @@ trash:'<svg viewBox="0 0 24 24"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></
 clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>'};
 
 const SHEETS={
+/* ---- add ANOTHER workout to today ---- */
+addsess:()=>{const p=curP(),day=todayLogs();
+  const opts=Object.keys(p.sessions).map(k=>[k,p.sessions[k].n])
+    .concat(D.mine.map(m=>[m.id,m.n]))
+    .concat(XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n]))
+    .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']))
+    .concat(CALORDER.map(k=>['cal_'+k,CAL[k].n]));
+  return `<div class="mid">Another session today</div>
+  <div class="jm" style="margin:6px 0 13px">Two-a-days are the point of this — a lift in the morning and conditioning or a complex later. Each session keeps its own sets and they all count toward your volume. Nothing you have already logged today is touched.</div>
+  ${day.length?`<div class="sec" style="margin-top:4px">Already done today</div>
+    ${day.map((l,i)=>`<div class="tst"><div style="flex:1">
+      <div style="font-weight:600;font-size:14px">${esc(sessLabel(l))}${l.done?' ✓':' · in progress'}</div>
+      <div class="jm">${(l.ex||[]).reduce((a,e)=>a+(e.sets||[]).filter(x=>x.done).length,0)} sets logged</div></div>
+      <button class="btn sm gh" onclick="setSess(${i})">Open</button>
+      <button class="btn sm gh" style="color:var(--bad)" onclick="delSess(${i})">✕</button></div>`).join('')}`:''}
+  <div class="sec">Start a second session</div>
+  <select id="asx">${opts.map(o=>`<option value="${esc(o[0])}">${esc(o[1])}</option>`).join('')}</select>
+  <button class="btn p" style="margin-top:10px" onclick="addSess(document.getElementById('asx').value)">Add it</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
+
 /* ---- the in-session 3-dot menu ---- */
 exopt:i=>{i=+i;const l=curLog();if(!l||!l.ex[i])return '<div class="mid">Nothing here</div>';
   const e=l.ex[i],n=l.ex.length;
@@ -1048,24 +1295,28 @@ exopt:i=>{i=+i;const l=curLog();if(!l||!l.ex[i])return '<div class="mid">Nothing
   <button class="btn gh" style="margin-top:14px" onclick="close_()">Cancel</button>`},
 
 /* ---- one logged session, editable ---- */
-hist:d=>{const l=D.logs[d];if(!l)return '<div class="mid">Nothing logged</div>';
-  const s=sessById(l.sid);
-  let h=`<div class="mid">${esc((s&&s.n)||'Session')}</div>
-  <div class="jm" style="margin:5px 0 13px">${esc(d)}${l.retro?' · logged after the fact':''}</div>
+hist:key=>{const r=histRef(key),l=r.l;
+  if(!l)return '<div class="mid">Nothing logged</div>';
+  let h=`<div class="mid">${esc(sessLabel(l))}</div>
+  <div class="jm" style="margin:5px 0 13px">${esc(r.d)}${l.at?' · '+esc(l.at):''}${l.retro?' · logged after the fact':''}${r.i>0?' · session '+(r.i+1)+' of the day':''}</div>
   <div class="grid3">
-    <div><div class="tiny">Calories</div><input type="text" inputmode="numeric" value="${esc(l.kcal||'')}" onchange="histField('${d}','kcal',this.value)"></div>
-    <div><div class="tiny">Avg HR</div><input type="text" inputmode="numeric" value="${esc(l.hr||'')}" onchange="histField('${d}','hr',this.value)"></div>
-    <div><div class="tiny">Effort</div><input type="text" inputmode="numeric" value="${esc(l.effort||'')}" onchange="histField('${d}','effort',this.value)"></div>
+    <div><div class="tiny">Calories</div><input type="text" inputmode="numeric" value="${esc(l.kcal||'')}" onchange="histField('${key}','kcal',this.value)"></div>
+    <div><div class="tiny">Avg HR</div><input type="text" inputmode="numeric" value="${esc(l.hr||'')}" onchange="histField('${key}','hr',this.value)"></div>
+    <div><div class="tiny">Effort</div><input type="text" inputmode="numeric" value="${esc(l.effort||'')}" onchange="histField('${key}','effort',this.value)"></div>
+  </div>
+  <div class="grid2" style="margin-top:8px">
+    <div><div class="tiny">Duration min</div><input type="text" inputmode="decimal" value="${esc(l.mins||(l.dur?Math.round(l.dur/60):''))}" onchange="histField('${key}','mins',this.value)"></div>
+    <div><div class="tiny">Started</div><input type="time" value="${esc(l.at||'')}" onchange="histField('${key}','at',this.value)"></div>
   </div>`;
   (l.ex||[]).forEach((e,i)=>{
     h+=`<div class="sec" style="margin:16px 0 7px">${esc(e.n)}${e.skip?' · skipped':''}${e.warm?' · warm-up':''}</div>`;
     (e.sets||[]).forEach((st,j)=>{
       h+=`<div class="st" style="grid-template-columns:22px 1fr 1fr 42px"><span>${j+1}</span>
-        <input type="text" inputmode="decimal" value="${esc(st.w)}" onchange="histSetV('${d}',${i},${j},'w',this.value)" class="${isBW(st.w)?'bw':''}">
-        <input type="text" inputmode="numeric" value="${esc(st.r)}" onchange="histSetV('${d}',${i},${j},'r',this.value)">
+        <input type="text" inputmode="decimal" value="${esc(wDisp(st.w))}" onchange="histSetV('${key}',${i},${j},'w',this.value)" class="${isBW(st.w)?'bw':''}">
+        <input type="text" inputmode="numeric" value="${esc(st.r)}" onchange="histSetV('${key}',${i},${j},'r',this.value)">
         <span class="rsc">${st.rs!==undefined?esc(restTxt(st.rs)):''}</span></div>`});});
   h+=`<button class="btn" style="margin-top:16px" onclick="close_();go('prog')">Done</button>
-    <button class="btn gh" style="margin-top:7px;color:var(--bad)" onclick="histDel('${d}')">Delete this session</button>`;
+    <button class="btn gh" style="margin-top:7px;color:var(--bad)" onclick="histDel('${key}')">Delete this session</button>`;
   return h},
 
 /* ---- log a workout that already happened ---- */
@@ -1074,7 +1325,8 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
   const sess=Object.keys(p.sessions).map(k=>[k,p.sessions[k].n])
     .concat(D.mine.map(m=>[m.id,m.n]))
     .concat(XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n]))
-    .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']));
+    .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']))
+    .concat(CALORDER.map(k=>['cal_'+k,CAL[k].n]));
   const opts=Object.keys(EX).map(n=>`<option value="${esc(n)}">${esc(n)}</option>`).join('');
   return `<div class="mid">Log a workout you've already done</div>
   <div class="jm" style="margin:6px 0 13px">For the sessions you trained without the app open. It counts toward your volume, calories and PBs exactly like a live one.</div>
@@ -1086,6 +1338,11 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
     <div><div class="tiny">Calories</div><input type="text" inputmode="numeric" placeholder="auto" value="${esc(R.kcal)}" onchange="retroSet('kcal',this.value)"></div>
     <div><div class="tiny">Avg HR</div><input type="text" inputmode="numeric" placeholder="bpm" value="${esc(R.hr)}" onchange="retroSet('hr',this.value)"></div>
   </div>
+  <div class="grid2" style="margin-top:8px">
+    <div><div class="tiny">Duration</div><input type="text" inputmode="decimal" placeholder="47 or 47:30" value="${esc(R.mins)}" onchange="retroSet('mins',this.value)"></div>
+    <div><div class="tiny">Started (optional)</div><input type="time" value="${esc(R.at)}" onchange="retroSet('at',this.value)"></div>
+  </div>
+  <div class="jm" style="margin-top:5px">Start time is optional — it is what tells a morning lift apart from an evening session in your history.</div>
   <div class="sec">Start from a session</div>
   <select onchange="retroSet('sid',this.value)">
     <option value="">Build it from scratch</option>
@@ -1120,6 +1377,21 @@ kbx:k=>{const c=KBX[k];if(!c)return '<div class="mid">Unknown complex</div>';
      <span class="pill a">×${x[1]}</span></div>`).join('')}
   <div class="warnbox" style="margin-top:12px">Rest is between ROUNDS only. If you have to put the bell down mid-round, the bell is too heavy or the round is too long — drop a size rather than break the complex.</div>
   <button class="btn p" style="margin-top:6px" onclick="startKbx('${k}')">Start it now</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
+
+/* ---- calisthenics workouts ---- */
+cal:k=>{const c=CAL[k];if(!c)return '<div class="mid">Unknown workout</div>';
+  return `<div class="mid">${esc(c.n)}</div>
+  <div class="row" style="gap:6px;margin:9px 0 12px;flex-wrap:wrap">
+    <span class="pill a">${esc(c.kind)}</span><span class="pill">~${c.mins} min</span>
+    ${c.bench?'<span class="pill g">Scored benchmark</span>':''}</div>
+  <div class="note">${esc(c.note)}</div>
+  <div class="sec">The workout</div>
+  ${c.ex.map(e=>`<div class="tst"><div style="flex:1">
+     <div style="font-weight:600;font-size:14px">${esc(e.n)}</div>
+     <div class="jm">${e.s>1?e.s+' \u00d7 ':''}${esc(e.r)}${e.t?' \u00b7 '+esc(e.t):''}${e.rest?' \u00b7 rest '+e.rest+'s':''}</div></div></div>`).join('')}
+  <button class="btn p" style="margin-top:16px" onclick="startCal('${k}')">Start it now</button>
+  ${c.bench?`<button class="btn gh" style="margin-top:7px" onclick="close_();open_('bench','${c.bench}')">Log a score</button>`:''}
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
 
 /* ---- martial arts sessions ---- */
@@ -1237,12 +1509,13 @@ rescue:()=>{const s=sessFor();
     <button class="btn p" style="margin-top:12px" onclick="doRescue()">Load the rescue session</button>
     <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
 
-done:()=>{const l=curLog(),sets=l.ex.reduce((a,e)=>a+e.sets.filter(s=>s.done).length,0);
+done:()=>{const l=curLog();if(!l)return '<div class="mid">Nothing to log</div>';
+  const sets=l.ex.reduce((a,e)=>a+e.sets.filter(s=>s.done).length,0);
   return `<div class="mid">Session logged</div>
     <div class="grid3" style="margin:14px 0">
       <div><div class="tiny">Sets</div><div class="big">${sets}</div></div>
       <div><div class="tiny">Minutes</div><div class="big">${fmt((l.dur||0)/60)}</div></div>
-      <div><div class="tiny">Streak</div><div class="big" style="color:var(--acc)">${streak()}</div></div></div>
+      <div><div class="tiny">Training streak</div><div class="big" style="color:var(--acc)">${trainStreak()}</div></div></div>
     <div class="note">Next time the app will read these numbers and tell you exactly what to beat. Mobility tonight — that's the half most people skip.</div>
     <button class="btn p" style="margin-top:14px" onclick="close_();go('today')">Done</button>`},
 
@@ -1388,7 +1661,9 @@ function doRescue(){
     {n:'Ab wheel',s:3,r:'10',rest:45}];
   /* store in D.custom so it survives a reload — mutating P does not persist */
   D.custom.__rescue={n:'Rescue · 20 min',w:'home',mins:20,ex:ex};
-  D.logs[k]={sid:'__rescue',pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),rescue:true};
+  const _a=dayLogs(k);D.logs[k]=_a;
+  _a.push({sid:'__rescue',pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now(),rescue:true});
+  setIdx(_a.length-1);
   save();close_();go('train')}
 function logBench(k){const v=document.getElementById('bv').value.trim();if(!v)return;
   D.bench[k]=D.bench[k]||[];D.bench[k].push({d:todayISO(),v:v});save();close_()}
@@ -1419,19 +1694,20 @@ function dl(name,txt,type){const b=new Blob([txt],{type:type||'text/plain'}),u=U
   const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
 function expJSON(){dl('JHFP-backup-'+todayISO()+'.json',JSON.stringify(D,null,1),'application/json')}
 function impJSON(inp){const f=inp.files[0];if(!f)return;const r=new FileReader();
-  r.onload=e=>{try{D=deep(DEF,JSON.parse(e.target.result));save();render();alert('Restored.')}catch(x){alert('That file could not be read.')}};
+  r.onload=e=>{try{D=migrate(deep(DEF,JSON.parse(e.target.result)));save();render();alert('Restored.')}catch(x){alert('That file could not be read.')}};
   r.readAsText(f)}
 function expObs(){
   const p=curP();let m='---\ntype: log\nsource: JHFP\ntags: [health, fitness, jhfp]\n---\n\n';
   m+='# JHFP training log — '+todayISO()+'\n\n';
   m+='**Programme:** '+p.name+' · week '+curWeek()+' of '+p.weeks+' ('+progPct()+'% complete)  \n';
-  m+='**Protocol streak:** '+streak()+' days · **Mobility streak:** '+mobStreak()+' days\n\n';
+  m+='**Training streak:** '+trainStreak()+' days · **Protocol streak:** '+streak()+' days · **Mobility streak:** '+mobStreak()+' days\n\n';
   const v=volume(7);
   m+='## Weekly volume (sets per muscle, last 7 days)\n\n';
   m+='| Muscle | Sets | State |\n|---|---|---|\n';
   MUS.forEach(x=>{const s=volState(v[x],x);m+='| '+MUSN[x]+' | '+v[x]+' | '+s[0]+' |\n'});
   m+='\n## Sessions\n\n';
-  Object.keys(D.logs).sort().reverse().slice(0,40).forEach(k=>{const l=D.logs[k];if(!l.done)return;
+  const _rows=[];Object.keys(D.logs).sort().reverse().forEach(k=>dayLogs(k).forEach(l=>_rows.push([k,l])));
+  _rows.slice(0,60).forEach(([k,l])=>{if(!l.done)return;
     /* resolve across the programme, saved customs, complexes and striking */
     const pp=P[l.pid]||p, ss=(pp.sessions&&pp.sessions[l.sid])||sessById(l.sid)||D.custom[l.sid];
     m+='### '+k+' — '+(ss?ss.n:(l.sid||'Session'))+(l.retro?' _(logged after the fact)_':'')+'\n\n';
@@ -1473,7 +1749,7 @@ function expObs(){
 }
 
 /* ================= BOOT ================= */
-if(!D.logs[todayISO()])save();
+save();
 render();
 /* Auto-update: when a new version is pushed to GitHub, the new service worker
    takes over and the app reloads itself once. No manual cache clearing. */

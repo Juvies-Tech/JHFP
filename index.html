@@ -24,6 +24,11 @@
 --tx:#F5F0EC; --tx2:#BFB3AC; --tx3:#8C7F77;
 --bd:#2E231E; --bd2:#3D2E27;
 --ok:var(--grn); --warn:var(--amb); --bad:var(--red);
+/* anatomy chart: an untrained muscle must be clearly VISIBLE. Using --s3 for it
+   made the figure read as black holes on a black background, which is the exact
+   complaint that triggered this rebuild. --musf is the non-muscle filler
+   (head, hands, feet) and sits a step darker so it is obviously not a muscle. */
+--mus0:#4E3E36; --musf:#30251F;
 --r:12px; --sf:env(safe-area-inset-bottom,0px);
 }
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -270,11 +275,34 @@ const DEF={
     kcal:3500,protein:210,fat:295,bareMode:false,restDefault:90,screenLock:false},
   active:{id:'p4',start:todayISO(),week:1},
   logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[],
-  custom:{}, mine:[], photos:[]
+  custom:{}, mine:[], photos:[], ui:{sidx:0}
 };
 let D=load();
 function todayISO(d){d=d||new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
-function load(){try{const r=JSON.parse(localStorage.getItem(K));return r?deep(DEF,r):JSON.parse(JSON.stringify(DEF))}catch(e){return JSON.parse(JSON.stringify(DEF))}}
+function load(){try{const r=JSON.parse(localStorage.getItem(K));
+  return migrate(r?deep(DEF,r):JSON.parse(JSON.stringify(DEF)))}
+  catch(e){return migrate(JSON.parse(JSON.stringify(DEF)))}}
+
+/* ---- MIGRATION: one session per day -> MANY ----
+   Up to v4 a day held exactly ONE session object at D.logs[date]. Starting a
+   second workout that day silently overwrote the first — which is how Juan lost
+   a push session behind a Simple & Sinister. Each date now holds an ARRAY of
+   sessions. Old records are wrapped in an array in place, so no logged day is
+   lost on upgrade, and the migration is idempotent: an array is left alone. */
+function migrate(d){
+  d.logs=d.logs||{};
+  for(const k in d.logs){
+    let v=d.logs[k];
+    if(!v)               {delete d.logs[k];continue}
+    if(!Array.isArray(v)) v=d.logs[k]=[v];
+    /* drop any null element — everything downstream assumes a real session */
+    const clean=v.filter(x=>x&&typeof x==='object');
+    if(!clean.length) delete d.logs[k]; else d.logs[k]=clean;
+  }
+  d.photos=d.photos||[];
+  d.ui=d.ui||{sidx:0};
+  return d;
+}
 function deep(d,r){const o=JSON.parse(JSON.stringify(d));for(const k in r){
   if(r[k]&&typeof r[k]==='object'&&!Array.isArray(r[k])&&o[k])o[k]=deep(o[k],r[k]);else o[k]=r[k]}return o}
 function save(){localStorage.setItem(K,JSON.stringify(D))}

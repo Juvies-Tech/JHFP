@@ -1,12 +1,14 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
 /* Bump this version string on every release — it is what triggers the
-   auto-update on Juan's phone. v4: recentred + enlarged kettlebell icon,
-   bodybuilder-proportioned anatomy chart, rest "Done" button that logs real
-   rest, in-session 3-dot exercise menu, workout history + retro logging,
-   1kg = bodyweight code, avg heart rate, progress photos, local member
-   profiles, kettlebell complexes, striking sessions, the Justin King
-   functional hypertrophy programme, and 30s off every prescribed rest. */
-const C = 'jhfp-v4';
+   auto-update on Juan's phone. BETA 1.0: anatomy chart rebuilt from muscle
+   blocks with the back split into lats / rhomboids / erectors and tap-to-identify;
+   MULTIPLE WORKOUTS PER DAY (a day is now an array of sessions, so a second
+   workout no longer wipes the first); training streak that bridges programmed
+   rest days; 1=BW now shows live in Train; Calisthenics workouts, corrected KB
+   complexes, Leopard/Orca flows and two EMOMs from the Hard to Kill note;
+   Zeus/Achilles/Hercules as benchmarks; session duration and start time;
+   bigger, higher kettlebell icon. */
+const C = 'jhfp-beta-1.0';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {

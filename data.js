@@ -702,28 +702,41 @@ pd:{n:'PD Special',rounds:5,rest:75,kit:'1 bell',
 gimli:{n:'Gimli',rounds:5,rest:75,kit:'1 bell',
   seq:[['KB two-arm swing',5],['KB high pull',4],['KB goblet squat',3]],
   note:'Descending ladder. Play with the rep numbers as you get fitter — 5/4/3 is the floor, not the rule.'},
-zeus:{n:'Zeus',rounds:5,rest:90,kit:'1 bell · all one side, then switch',
-  seq:[['KB single-leg RDL',5],['KB clean',4],['KB military press',3]],
-  note:'Finish every rep on one arm before you switch. Optional extras between rounds: dips, pull-ups, lunges.'},
-achilles:{n:'Achilles',rounds:5,rest:90,kit:'1 bell · same side throughout',
-  seq:[['KB single-arm swing',3],['KB snatch',3],['KB overhead lunge',3]],
-  note:'All three same side, rest, then switch. Add pull-ups and leg raises between rounds if you want the full version.'},
+zeus:{n:'Zeus',rounds:7,rest:90,kit:'1 bell · all one side, then switch',bench:'zeus',
+  seq:[['KB single-leg RDL',7],['KB clean',6],['KB military press',5]],
+  note:'7 single-arm deadlifts, 6 cleans, 5 presses. Finish every rep on one arm before you switch. Optional extras between rounds: dips, pull-ups, lunges. Benchmark is 7 rounds for time.'},
+achilles:{n:'Achilles',rounds:7,rest:90,kit:'1 bell · same side throughout',bench:'achilles',
+  seq:[['KB single-arm swing',5],['KB snatch',5],['KB overhead lunge',5],['Pull-up',10],['Hanging leg raise',10]],
+  note:'5 swings, 5 snatches, 5 overhead lunges, then 10 pull-ups and 10 leg raises. All the bell work same side, rest, then switch. Benchmark is 7 rounds for time.'},
 athena:{n:'Athena',rounds:5,rest:75,kit:'1 bell',
   seq:[['KB two-arm swing',7],['KB high pull',7],['KB clean',4]],
   note:'Squat cleans are 4 per side, offset. Reversible — run it backwards once it feels easy.'},
-hercules:{n:'Hercules',rounds:7,rest:60,kit:'1 bell · switch sides each round',
-  seq:[['KB two-arm swing',3],['KB clean',4],['KB push press',5]],
-  note:'3/4/5 light, 5/6/7 when you want more. Seven rounds, switch sides each round. Reversible.'},
+hercules:{n:'Hercules',rounds:7,rest:60,kit:'1 bell · switch sides each round',bench:'hercules',
+  seq:[['KB two-arm swing',5],['KB clean',6],['KB push press',7]],
+  note:'5 swings, 6 cleans, 7 push presses. Seven rounds, switch sides each round. Reversible. Benchmark is 7 rounds for time.'},
 mick:{n:'Big Mick',rounds:7,rest:60,kit:'1 bell · single arm · switch each round',
   seq:[['KB bent-over row',3],['KB single-arm swing',4],['KB snatch',5]],
   note:'3/4/5 or 5/6/7. Heavier bell + more rest = strength. Lighter bell + less rest = engine. Pick one, do not split the difference.'},
 flow:{n:'Flow',rounds:5,rest:75,kit:'1 bell · continuous',
   seq:[['KB two-arm swing',5],['KB snatch',3],['KB thruster',3],['KB windmill',2]],
   note:'One movement melts into the next — swing to snatch to thruster to windmill. Quality over speed; this one is a skill session disguised as conditioning.'},
+leopard:{n:'Leopard Flow',rounds:5,rest:75,kit:'2 bells if you have them',
+  seq:[['KB two-arm swing',5],['KB clean',5],['KB front rack squat',5],['KB thruster',5]],
+  note:'Straight into the next movement, rest ONLY after the thrusters. With one bell, do both sides before resting.'},
+orca:{n:'Orca Flow',rounds:5,rest:75,kit:'2 bells if you have them',
+  seq:[['KB two-arm swing',5],['KB snatch',5],['KB thruster',5],['KB windmill',5]],
+  note:'Straight into the next movement, rest ONLY after the thrusters. With one bell, do both sides before resting.'},
+emom1:{n:'Full Body EMOM',rounds:20,rest:0,kit:'1 bell · 20 min EMOM',
+  seq:[['KB snatch',7],['Push-up',25],['KB thruster',7],['KB renegade row',10]],
+  note:'20 minute EMOM. Single-arm snatches and thrusters. Whatever is left of the minute is your rest — that is the whole game.'},
+emom2:{n:'Snatch & Squat EMOM',rounds:20,rest:0,kit:'1 bell · 20 min EMOM',
+  seq:[['KB snatch',7],['KB goblet squat',10]],
+  note:'The minimalist EMOM. Swap the pairing when it gets stale: snatches + presses, swings + push-ups, high pulls + pull-ups, cleans + lunges.'},
 rogan:{n:'Rogan',rounds:3,rest:75,kit:'1 bell · 10 reps each',
   seq:[['KB single-arm swing',10],['KB clean & press',10],['KB windmill',10],['KB renegade row',10]],
   note:'Warm up first: 25 push-ups and 50 squats. Then 3 rounds of 10 on each movement.'}};
-const KBXORDER=['pd','gimli','zeus','achilles','athena','hercules','mick','flow','rogan'];
+const KBXORDER=['pd','gimli','zeus','achilles','athena','hercules','mick','flow',
+'leopard','orca','emom1','emom2','rogan'];
 /* Turn a complex into a normal session object the player can run. */
 function kbxSession(k){const c=KBX[k];if(!c)return null;
   return {id:'kbx_'+k,n:c.n+' Complex',w:'home',mins:Math.max(12,Math.round(c.rounds*(c.seq.length*22+c.rest)/60)),
@@ -853,3 +866,87 @@ function cutRest(){
   return n;
 }
 const REST_CUT_COUNT=cutRest();
+
+/* ============================================================================
+   BETA 1.0 ADDITIONS
+   ========================================================================== */
+
+/* ---- CALISTHENICS WORKOUTS ----
+   The named sessions out of the Hard to Kill note, runnable like the KB
+   complexes. The scored ones (The Standard, Barbarian, Murph, Anna, Astrid,
+   Freya) are ALSO benchmarks — `bench` links them so finishing one prompts a
+   score. Diana, Faith and Grace have no stated target, so they are workouts only. */
+const CAL={
+standard:{n:'The Standard',mins:55,bench:'standard',kind:'For time',
+  note:'Your flagship test. PB 55:04 — that is the number to beat. Scale the progressions as they come: knee raises become toes-to-bar, squats become pistols, rows become muscle-ups, pike push-ups become handstand push-ups.',
+  ex:[{n:'Pull-up',s:1,r:'50',rest:0},{n:'Incline push-up',s:1,r:'100',rest:0},
+    {n:'Hanging knee raise',s:1,r:'25',rest:0},{n:'Bodyweight squat',s:1,r:'200',rest:0},
+    {n:'Ring dip',s:1,r:'50',rest:0},{n:'Ring row',s:1,r:'50',rest:0},
+    {n:'Pike push-up',s:1,r:'50',rest:0}]},
+barbarian:{n:'Barbarian',mins:22,bench:'barbarian',kind:'For time',
+  note:'Muscle-ups top and tail it. If the muscle-up is not there yet, sub 3 pull-ups plus 3 dips for each one and note it against the score.',
+  ex:[{n:'Ring muscle-up',s:1,r:'5',rest:0},{n:'Ring dip',s:1,r:'50',rest:0},
+    {n:'Pull-up',s:1,r:'30',rest:0},{n:'Push-up',s:1,r:'60',rest:0},
+    {n:'Ring muscle-up',s:1,r:'5',rest:0}]},
+murph:{n:'Murph',mins:60,bench:'murph',kind:'For time',
+  note:'Lt. Michael P. Murphy. Body armour optional and honestly not recommended until the unweighted time is respectable. Partition the middle however you like — 20 rounds of 5/10/15 is the standard way.',
+  ex:[{n:'Zone 2 run',s:1,r:'1 mile',rest:0},{n:'Pull-up',s:1,r:'100',rest:0},
+    {n:'Push-up',s:1,r:'200',rest:0},{n:'Bodyweight squat',s:1,r:'300',rest:0},
+    {n:'Zone 2 run',s:1,r:'1 mile',rest:0}]},
+anna:{n:'Anna',mins:30,bench:'anna',kind:'30 min AMRAP',
+  note:'Pull-ups and dips, alternating, for 30 minutes. PB is 80 and 80. Pace it — going out hard here is how you end up at 50.',
+  ex:[{n:'Pull-up',s:1,r:'AMRAP 30 min',rest:0},{n:'Ring dip',s:1,r:'AMRAP 30 min',rest:0}]},
+astrid:{n:'Astrid',mins:30,bench:'astrid',kind:'30 min AMRAP',
+  note:'Anna with abs bolted on. Crunches or toes-to-bar, your call, but pick one and keep it for every attempt or the score means nothing.',
+  ex:[{n:'Pull-up',s:1,r:'AMRAP 30 min',rest:0},{n:'Ring dip',s:1,r:'AMRAP 30 min',rest:0},
+    {n:'Hanging knee raise',s:1,r:'AMRAP 30 min',rest:0}]},
+freya:{n:'Freya',mins:32,bench:'freya',kind:'5 rounds',
+  note:'Five straight rounds. The handstand push-ups are the limiter — pike push-ups against a wall until they come.',
+  ex:[{n:'Pull-up',s:5,r:'10',rest:60},{n:'Ring dip',s:5,r:'10',rest:60},
+    {n:'Diamond push-up',s:5,r:'15',rest:60},{n:'Ring row',s:5,r:'15',rest:60},
+    {n:'Handstand push-up',s:5,r:'7',rest:75}]},
+diana:{n:'Diana',mins:26,kind:'4 rounds',
+  note:'Four rounds. Short, and deliberately built around the things that get skipped: abs, forearms and the handstand.',
+  ex:[{n:'Ab wheel',s:4,r:'12',rest:60},{n:'Wrist curl',s:4,r:'20',rest:45},
+    {n:'Wrist extension',s:4,r:'20',rest:45},{n:'Grip trainer',s:4,r:'15',rest:45},
+    {n:'Handstand hold',s:4,r:'Max hold',rest:75}]},
+faith:{n:'Faith',mins:45,kind:'Descending + supersets',
+  note:'Split squats descend 15-15-12-12-10-10-7, then three supersets. The legs are done first on purpose — everything after is upper body, so fatigue does not cost you the squat pattern.',
+  ex:[{n:'Bulgarian split squat',s:7,r:'15,15,12,12,10,10,7 per side',rest:75},
+    {n:'Pike push-up',s:5,r:'15',t:'Superset',rest:0},
+    {n:'Hanging knee raise',s:5,r:'20',rest:60},
+    {n:'Pull-up',s:5,r:'10',t:'Superset',rest:0},
+    {n:'Ring dip',s:5,r:'12',rest:60},
+    {n:'KB Cossack squat',s:3,r:'10 per side',t:'Deep ROM',rest:60},
+    {n:'Nordic curl',s:3,r:'6',t:'3s ecc',rest:75}]},
+grace:{n:'Grace',mins:34,kind:'Supersets',
+  note:'Arms and vertical pressing. Pelican curls are the money movement here — go slow and do not let the shoulder take over from the biceps.',
+  ex:[{n:'Handstand push-up',s:4,r:'7',rest:90},
+    {n:'Chin-up',s:4,r:'10',t:'Superset',rest:0},
+    {n:'Ring tricep extension',s:4,r:'20',rest:60},
+    {n:'Ring bicep curl',s:4,r:'10',t:'Superset',rest:0},
+    {n:'Ring tricep extension',s:4,r:'12',rest:60},
+    {n:'Pike push-up',s:3,r:'15',rest:60}]}};
+const CALORDER=['standard','barbarian','murph','anna','astrid','freya','diana','faith','grace'];
+function calSession(k){const c=CAL[k];if(!c)return null;
+  return {id:'cal_'+k,n:c.n,w:'home',mins:c.mins,cal:1,bench:c.bench,note:c.note,kind:c.kind,ex:c.ex};}
+
+/* ---- movements the Calisthenics sessions need ---- */
+Object.assign(EX,{
+'Incline push-up':{m:['chest','triceps','delts'],c:'Hands on a bench, bar or the rings set high. The higher the hands, the easier it is \u2014 this is the scaling dial for The Standard, not a lesser exercise.'},
+'Bodyweight squat':{m:['quads','glutes','core'],c:'Full depth, hips below the knee, heels down. 200 of these in The Standard is as much a breathing test as a leg one \u2014 stay upright and keep the reps rhythmic.'},
+'Handstand push-up':{m:['delts','triceps','core'],c:'Against a wall until the free-standing version comes. Head to the floor, hands wider than a strict press. Scale with pike push-ups on a box, not with half reps.'}});
+
+/* ---- KB COMPLEX BENCHMARKS ----
+   Zeus, Achilles and Hercules are scored 7 rounds for time in the note, so they
+   sit alongside Simple & Sinister as tests rather than just workouts. */
+BENCH.push(
+{k:'zeus',n:'Zeus Complex',u:'time',pb:'',d:'7 single-arm deadlifts · 6 cleans · 5 presses. All one side, then switch. 7 rounds for time.'},
+{k:'achilles',n:'Achilles Complex',u:'time',pb:'',d:'5 single-arm swings · 5 snatches · 5 overhead lunges · 10 pull-ups · 10 leg raises. 7 rounds for time.'},
+{k:'hercules',n:'Hercules Complex',u:'time',pb:'',d:'5 swings · 6 cleans · 7 push presses. Switch sides each round. 7 rounds for time.'});
+
+/* ---- FUEL ---- */
+FOOD.push(
+{n:'Chicken strips',k:165,p:31,f:4},
+{n:'Chicken breast',k:165,p:31,f:4},
+{n:'Parmesan cheese',k:431,p:38,f:29});
