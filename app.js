@@ -2103,6 +2103,18 @@ function gateRender(){
     <div class="gtitle">Juvies Health &amp; Fitness</div>
     <div class="gsub">Protocol</div>`;
 
+  /* Prioritised, not collapsed — this app has no server, so "forgot to back up"
+     is the one mistake that actually loses someone's log for good. It sits
+     above sign-in on every screen of the gate, not folded away like the
+     philosophy teaser below. */
+  h+=`<div class="gwarn">
+      <div class="gwt">⚠ Your data lives on this phone only</div>
+      <div class="jm">Nothing is uploaded anywhere — that is deliberate for now. But it also means
+        <b>uninstalling the app, resetting the phone, or clearing site data erases your log for good.</b>
+        Back it up weekly: <b>More → Data → Backup all data</b>, then send Juan the file so he can keep
+        a copy safe in the vault.</div>
+    </div>`;
+
   if(GATE.err)h+=`<div class="gcard" style="padding:0;background:none;border:none;backdrop-filter:none;margin-top:16px"><div class="gerr">${esc(GATE.err)}</div></div>`;
 
   if(M==='in'){
@@ -2188,7 +2200,7 @@ function gateRender(){
   if(GATE.phil){
     h+=`<div style="margin-top:12px">`;
     PHIL.forEach((x,i)=>{h+=`<div class="pt"><div class="pn">${String(i+1).padStart(2,'0')}</div>
-      <div style="flex:1"><div class="ph">${esc(x.h)}</div><div class="pb">${esc(x.b)}</div></div></div>`});
+      <div style="flex:1"><div class="phh">${esc(x.h)}</div><div class="phb">${esc(x.b)}</div></div></div>`});
     h+=`</div>`;
   }
   h+=`</div>
@@ -3301,7 +3313,14 @@ function recalc(){const S=D.settings;
 /* ================= EXPORT ================= */
 function dl(name,txt,type){const b=new Blob([txt],{type:type||'text/plain'}),u=URL.createObjectURL(b);
   const a=document.createElement('a');a.href=u;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(u),2000)}
-function expJSON(){dl('JHFP-backup-'+todayISO()+'.json',JSON.stringify(D,null,1),'application/json')}
+/* Filename carries the profile name as well as the date, so a backup sitting
+   in a downloads folder (or forwarded on to Juan) is identifiable without
+   opening it — useful the moment more than one person is backing up. */
+function expJSON(){
+  const p=curProfile();
+  const nm=safeUser(p&&p.name);
+  dl('JHFP-backup-'+nm+'-'+todayISO()+'.json',JSON.stringify(D,null,1),'application/json')
+}
 /* Restoring REPLACES everything in the current profile. It used to do that with
    no confirmation and no check that the file was even a JHFP backup, so one
    mis-tap in the file picker wiped a training history. Now it verifies the
@@ -3346,8 +3365,9 @@ function impJSON(inp){
   r.readAsText(f);
 }
 function expObs(){
-  const p=curP();let m='---\ntype: log\nsource: JHFP\ntags: [health, fitness, jhfp]\n---\n\n';
-  m+='# JHFP training log — '+todayISO()+'\n\n';
+  const p=curP(),who=curProfile(),nm=who&&who.name?who.name:'';
+  let m='---\ntype: log\nsource: JHFP\nprofile: '+(nm||'unknown')+'\ntags: [health, fitness, jhfp]\n---\n\n';
+  m+='# JHFP training log — '+(nm?nm+' — ':'')+todayISO()+'\n\n';
   m+='**Programme:** '+p.name+(p.weeks?' · week '+curWeek()+' of '+p.weeks+' ('+progPct()+'% complete)':' · no block, self-directed')+'  \n';
   m+='**Training streak:** '+trainStreak()+' days · **Protocol streak:** '+streak()+' days · **Mobility streak:** '+mobStreak()+' days\n\n';
   const v=volume(7);
@@ -3395,7 +3415,10 @@ function expObs(){
     m+='\n## Mobility\n\n'+MOBZONES.map(z=>z.n+' '+(mobScores()[z.k]!==undefined?mobScores()[z.k]:'—')).join(' · ')
       +'  \n_Weak three: '+mobWeak().map(mobZoneName).join(', ')+' · last scored '+a.d+'_\n'}
   m+='\n---\n*Exported from JHFP. Save to iCloud Drive → Obsidian Vault → Health.*\n';
-  dl('JHFP-'+todayISO()+'.md',m,'text/markdown');
+  /* filename carries the profile name ahead of the date, same reasoning as
+     expJSON() — once more than one person's log can land in the vault, a
+     filename that is only ever a date is not enough to tell them apart. */
+  dl('JHFP-'+safeUser(nm)+'-'+todayISO()+'.md',m,'text/markdown');
 }
 
 /* ================= BOOT =================
