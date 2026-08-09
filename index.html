@@ -1,5 +1,6 @@
 <!DOCTYPE html>
-<html lang="en">
+<!-- .gated is the DEFAULT so the app chrome never flashes before we know who is
+     signed in. gateBoot() removes it the moment a valid session is found. --><html lang="en" class="gated">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,user-scalable=no">
@@ -104,6 +105,111 @@ font-size:10px;font-weight:600;color:var(--tx3);letter-spacing:.02em;position:re
 border-radius:0 0 3px 3px;background:currentColor}
 .nav svg{width:21px;height:21px;stroke:currentColor;fill:none;stroke-width:1.9;
 stroke-linecap:round;stroke-linejoin:round}
+/* the week picker at the top of Train */
+.pickbar{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:linear-gradient(100deg,var(--accdim),var(--s2) 62%);
+  border:1px solid var(--accbd);border-radius:var(--r);padding:10px 12px;margin-bottom:10px}
+.pickbar:active{transform:scale(.99)}
+/* a row in the picker sheet */
+.pk{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  background:var(--s2);border:1px solid var(--bd);border-radius:11px;
+  padding:11px 12px;margin-bottom:7px}
+.pk.now{border-color:var(--acc);background:linear-gradient(100deg,var(--accdim),var(--s2) 60%)}
+.pk.did{opacity:.62}
+.pk .pkn{font-weight:600;font-size:14px}
+.pk .pkm{font-size:12px;color:var(--tx3);margin-top:1px}
+
+/* ---------- COLLAPSIBLE SECTIONS ----------
+   Progress and More had grown into single scrolls you had to thumb through to
+   find anything. A section is now a coloured heading you tap, and the colour
+   alternates ember / glacier down the page so the headings read as landmarks
+   rather than as a uniform list. Open state persists per section in D.ui.sec.
+
+   .secw is the wrapper and carries the tone; .sech is the tappable heading;
+   .secb is the body. A PINNED section (Programme, Volume) renders .sech with
+   no chevron and no button behaviour — same look, always open. */
+.secw{margin:18px 0 10px;border-radius:var(--r);overflow:hidden;
+  border:1px solid var(--bd2);background:var(--s1)}
+.secw:first-child{margin-top:8px}
+.sech{display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:12px 13px;position:relative;background:var(--s2)}
+.sech::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bd2)}
+.secw.acc .sech{background:linear-gradient(100deg,var(--accdim),var(--s2) 62%)}
+.secw.acc .sech::before{background:var(--acc)}
+.secw.acc .secn{color:#F0C0AC}
+.secw.ice .sech{background:linear-gradient(100deg,var(--icedim),var(--s2) 62%)}
+.secw.ice .sech::before{background:var(--ice)}
+.secw.ice .secn{color:#BEDDEA}
+.secn{font-size:15px;font-weight:700;letter-spacing:-.01em;flex:1;min-width:0}
+.secm{font-size:12px;color:var(--tx3);font-weight:600;white-space:nowrap}
+.secx{font-size:13px;color:var(--tx3);transition:transform .18s ease;
+  display:inline-block;flex:0 0 auto}
+.secw.on .secx{transform:rotate(90deg)}
+.secb{padding:12px 13px 4px}
+/* cards sitting inside a section lose their own outer border so the section
+   frame is the only box — nesting two bordered boxes looked like a bug */
+.secb .card{border-left-width:1px}
+.secb>*:last-child{margin-bottom:10px}
+.sece{padding:0 13px 13px;font-size:13px;color:var(--tx3)}
+
+/* ---------- LOGIN PORTAL ----------
+   Full-bleed gate that sits over everything until a profile is signed in. The
+   icon artwork is the backdrop: blown up, heavily dimmed and blurred so it
+   reads as texture rather than a picture of a kettlebell, with the ember
+   gradient of the app laid over it so the portal and the app feel like one
+   thing. Body scroll is locked while it is up (.gated on <html>). */
+.gate{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;
+  overflow-y:auto;-webkit-overflow-scrolling:touch;background:var(--bg)}
+.gate::before{content:"";position:fixed;inset:0;z-index:0;
+  background-image:url(icon.png);background-size:150% auto;background-position:50% 18%;
+  background-repeat:no-repeat;filter:blur(26px) saturate(1.1);opacity:.34}
+.gate::after{content:"";position:fixed;inset:0;z-index:1;background:
+  radial-gradient(115% 50% at 50% 0%, rgba(160,52,24,.42) 0%, rgba(20,16,14,0) 60%),
+  linear-gradient(180deg, rgba(20,16,14,.55) 0%, rgba(20,16,14,.88) 42%, var(--bg) 78%)}
+.gate.hidden{display:none}
+html.gated,html.gated body{overflow:hidden}
+.gatec{position:relative;z-index:2;width:100%;max-width:460px;margin:0 auto;
+  padding:calc(env(safe-area-inset-top,0px) + 34px) 20px calc(var(--sf) + 30px)}
+.gmark{width:74px;height:74px;border-radius:19px;display:block;margin:0 auto 14px;
+  box-shadow:0 10px 34px rgba(0,0,0,.55)}
+.gtitle{font-size:27px;font-weight:700;letter-spacing:-.02em;text-align:center}
+.gsub{font-size:12px;font-weight:600;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--acc2);text-align:center;margin-top:5px}
+.gcard{background:rgba(28,22,19,.82);border:1px solid var(--bd2);border-radius:16px;
+  padding:16px;margin-top:20px;backdrop-filter:blur(14px)}
+.gerr{background:var(--reddim);border:1px solid var(--redbd);color:#F0A79C;
+  border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:10px}
+.gok{background:var(--grndim);border:1px solid var(--grnbd);color:var(--grn);
+  border-radius:9px;padding:9px 11px;font-size:13px;margin-bottom:10px}
+.glink{display:block;width:100%;text-align:center;font-size:13px;color:var(--tx3);
+  margin-top:13px;text-decoration:underline;text-underline-offset:3px}
+.gfield{margin-bottom:9px}
+.gfield label{display:block;font-size:11px;font-weight:600;letter-spacing:.09em;
+  text-transform:uppercase;color:var(--tx3);margin-bottom:5px}
+/* who-is-this list on the portal */
+.gwho{display:flex;align-items:center;gap:11px;width:100%;text-align:left;
+  background:var(--s2);border:1px solid var(--bd);border-radius:12px;padding:10px 12px;margin-bottom:8px}
+.gwho:active{border-color:var(--acc)}
+.gwho .nm{font-size:15px;font-weight:600;line-height:1.2}
+.gwho .mt{font-size:12px;color:var(--tx3);margin-top:1px}
+/* ---------- AVATARS ----------
+   One class everywhere a face appears: portal, More, Manage Accounts. Falls
+   back to the initial on a tinted disc when no picture has been set, so the
+   layout never shifts depending on whether someone uploaded a photo. */
+.av{width:42px;height:42px;border-radius:50%;flex:0 0 auto;object-fit:cover;
+  background:var(--accdim);border:1px solid var(--accbd);display:flex;
+  align-items:center;justify-content:center;font-weight:700;font-size:17px;
+  color:var(--acc2);overflow:hidden;text-transform:uppercase}
+.av.lg{width:78px;height:78px;font-size:30px}
+.av img{width:100%;height:100%;object-fit:cover;display:block}
+/* philosophy panel */
+.phil{margin-top:16px}
+.phil .pt{display:flex;gap:11px;padding:9px 0;border-bottom:1px solid rgba(62,46,39,.5)}
+.phil .pt:last-child{border-bottom:none}
+.phil .pn{font-size:11px;font-weight:700;color:var(--acc);letter-spacing:.06em;
+  flex:0 0 20px;padding-top:3px;font-variant-numeric:tabular-nums}
+.phil .ph{font-size:14px;font-weight:600;line-height:1.3}
+.phil .pb{font-size:13px;color:var(--tx2);margin-top:2px;line-height:1.45}
 .view{display:none;animation:fi .18s ease}
 .view.on{display:block}
 @keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
@@ -244,6 +350,11 @@ padding:11px 13px;font-size:13px;color:var(--tx2);line-height:1.5;margin-bottom:
   <div class="sheetc" id="sheetc"></div>
 </div>
 
+<!-- LOGIN PORTAL. Rendered by gateRender() in app.js. Starts visible with the
+     app chrome hidden, so nobody's log is ever painted before we know who is
+     looking at the phone. gateOpen() / gateDone() flip .hidden here. -->
+<div class="gate" id="gate"><div class="gatec" id="gatec"></div></div>
+
 <nav class="nav">
   <button class="on" data-v="today" onclick="go('today')">
     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M9 22V12h6v10"/></svg>Today</button>
@@ -262,29 +373,171 @@ padding:11px 13px;font-size:13px;color:var(--tx2);line-height:1.5;margin-bottom:
    Built for Juan "Juvies" Lindeque. Single-file PWA, data in localStorage.
    ======================================================================== */
 
+/* ---- STORAGE ADAPTER ----
+   Every read and write in the app goes through STORE, never through
+   localStorage directly. Today it IS localStorage. The point of the indirection
+   is that swapping in a cloud backend later (Supabase was the option costed)
+   becomes a change to this one object plus an async boot, rather than a hunt
+   through 2,000 lines for every getItem call. Keep it that way: if you find
+   yourself typing localStorage anywhere below this block, put it here instead.
+
+   Synchronous on purpose. A remote backend would hydrate a cache into `mem`
+   during boot and let these stay sync, which is far less invasive than making
+   every caller await. */
+const STORE={
+  mem:null,                                  // reserved for a future hydrated cache
+  get(k){try{return localStorage.getItem(k)}catch(e){return null}},
+  set(k,v){try{localStorage.setItem(k,v);return true}catch(e){
+    /* quota is the realistic failure here — usually progress photos */
+    try{alert('Storage is full. Free space by deleting some progress photos under Progress.')}catch(_){}
+    return false}},
+  del(k){try{localStorage.removeItem(k)}catch(e){}},
+  json(k,f){try{const v=this.get(k);return v?JSON.parse(v):f}catch(e){return f}},
+  setJson(k,o){return this.set(k,JSON.stringify(o))}
+};
+
 /* ---- WHICH PROFILE ARE WE? ----
    Multiple members can each keep their own log on this phone. The profile
    INDEX lives under 'jhfp_profiles'; each profile's data lives under its own
    key. Juan is 'juan' and deliberately keeps the ORIGINAL 'jhfp_v1' key, so
-   upgrading to v4 does not orphan a single day of his existing history. */
-function curPid(){
-  try{const s=JSON.parse(localStorage.getItem('jhfp_profiles'));
-    if(s&&s.cur)return s.cur}catch(e){}
-  return 'juan';
+   upgrading does not orphan a single day of his existing history.
+
+   Beta 2.0 adds a SESSION on top: 'jhfp_session' records who actually signed in
+   on this device. The signed-in profile wins over the index's `cur`, because
+   `cur` is only a "last used" hint and must never by itself grant access to
+   somebody else's log. No session means the login portal is shown and the app
+   is not rendered at all. */
+const SKEY='jhfp_session';
+/* A session is only honoured if it names a profile that still exists AND its
+   binding token still matches that profile's credential, AND it has not aged
+   out. Validating "pid exists" alone made the session a bearer token that
+   could be forged by hand-editing one localStorage value — which would have
+   made the whole login screen decorative. */
+const SESS_DAYS=60;
+function sessionBind(p){
+  /* KNOW WHAT THIS DOES AND DOES NOT DO.
+
+     It makes a hand-edited session fail: change `pid` to somebody else and the
+     token no longer matches, so the session is thrown away. It also expires a
+     session when the underlying password changes or is reset.
+
+     It does NOT stop anyone who can run a line of JavaScript on this phone.
+     Every input to the token is readable from the same localStorage, and this
+     function is a global, so the token can simply be recomputed — and in any
+     case someone at that level can read the raw record directly and skip the
+     session entirely. A pure client-side app cannot defend against its own
+     device. That is not a bug to be fixed here; it is the reason the cloud
+     option exists, and it is why the login screen promises only that the
+     password keeps other PEOPLE out of your log, never that the data is
+     protected. Do not let the copy drift into claiming more than this. */
+  const seed=(p&&((p.auth&&(p.auth.h||(p.auth.master?'master':'')))||p.pin||'')) +'|'+ (p&&p.id) +'|'+ (p&&p.created||'');
+  return weakHashSync(seed);
 }
-const K=(function(id){return id==='juan'?'jhfp_v1':'jhfp_v1__'+id})(curPid());
+function weakHashSync(s){let h1=0x12345678,h2=0x9e3779b9;
+  for(let i=0;i<s.length;i++){const c=s.charCodeAt(i);
+    h1=Math.imul(h1^c,2654435761);h2=Math.imul(h2^c,1597334677)}
+  h1=Math.imul(h1^(h1>>>16),2246822507)^Math.imul(h2^(h2>>>13),3266489909);
+  h2=Math.imul(h2^(h2>>>16),2246822507)^Math.imul(h1^(h1>>>13),3266489909);
+  return ((h2>>>0).toString(16).padStart(8,'0'))+((h1>>>0).toString(16).padStart(8,'0'));
+}
+function sessionPid(){
+  const s=STORE.json(SKEY,null);
+  if(!s||!s.pid)return null;
+  if(!s.at||(Date.now()-s.at)>SESS_DAYS*864e5){STORE.del(SKEY);return null}
+  const idx=STORE.json('jhfp_profiles',null);
+  const p=idx&&idx.list&&idx.list.filter(Boolean).find(x=>x.id===s.pid);
+  if(!p){STORE.del(SKEY);return null}
+  if(s.k!==sessionBind(p)){STORE.del(SKEY);return null}   // credential changed, or forged
+  return s.pid;
+}
+/* SIGNED is fixed for the life of the page. Everything downstream keys off it:
+   with no session we must not read, paint or write anybody's record. */
+const SIGNED=sessionPid();
+/* The data key. When nobody is signed in there is no key — the app runs on a
+   throwaway in-memory record so that an unauthenticated boot cannot leak the
+   last user's log, and (just as important) cannot overwrite it. */
+function curPid(){return SIGNED||null}
+const K=SIGNED?(SIGNED==='juan'?'jhfp_v1':'jhfp_v1__'+SIGNED):null;
 const DEF={
   settings:{name:'Juvies',age:22,height:178,weight:84,
     kcal:3500,protein:210,fat:295,bareMode:false,restDefault:90,screenLock:false},
-  active:{id:'p4',start:todayISO(),week:1},
-  logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[],
-  custom:{}, mine:[], photos:[], ui:{sidx:0}
+  /* Adventurer is the landing programme for a NEW record only. An existing
+     record's own `active` always wins, because load() merges the stored record
+     OVER DEF — so this cannot move Juan off P4, and there is a test for that.
+     Landing a stranger in week 1 of a ten-week kettlebell block would be a
+     terrible first screen; Adventurer lets them look around first. */
+  active:{id:'p11',start:todayISO(),week:1},
+  /* rest = dates the QUEUE treated as programmed off-days. Once the schedule
+     stops tracking the calendar there is no other way to tell a rest day from
+     a missed one when walking back through history. */
+  logs:{}, journal:{}, food:{}, pbs:{}, bench:{}, mobility:{}, assess:[], weights:{}, completed:[], rest:{},
+  /* ui.sec = which collapsible sections are open. It lives in DEF as well as in
+     migrate() so that a straight copy of DEF is a COMPLETE record — anything
+     that builds a record without going through load() would otherwise get a
+     half-shaped ui object. */
+  custom:{}, mine:[], photos:[], ui:{sidx:0, sec:{}}
 };
+/* Set when the stored record exists but will not parse. While it is true, save()
+   refuses to write — otherwise the very first save of the session would flatten
+   a recoverable record with an empty one. A corrupt record is a bad day; a
+   corrupt record silently overwritten by a blank one is a lost year.
+
+   DECLARED BEFORE load() IS CALLED, and that ordering is the whole point. `let`
+   bindings sit in a temporal dead zone until their declaration is evaluated, so
+   with this line below `let D=load()` the assignment inside load()'s catch threw
+   "Cannot access 'CORRUPT' before initialization" — which meant the corrupt-
+   record branch could never run, no rescue copy was ever written, and the throw
+   took the rest of the boot script with it. The protection existed and had never
+   once executed. Do not move this line below `let D=load()`. */
+let CORRUPT=false;
 let D=load();
 function todayISO(d){d=d||new Date();return new Date(d.getTime()-d.getTimezoneOffset()*6e4).toISOString().slice(0,10)}
-function load(){try{const r=JSON.parse(localStorage.getItem(K));
-  return migrate(r?deep(DEF,r):JSON.parse(JSON.stringify(DEF)))}
-  catch(e){return migrate(JSON.parse(JSON.stringify(DEF)))}}
+function load(){
+  if(!K)return migrate(JSON.parse(JSON.stringify(DEF)));   // not signed in: scratch record
+  const raw=STORE.get(K);
+  if(raw===null||raw==='')return migrate(JSON.parse(JSON.stringify(DEF)));
+  let r=null;
+  try{r=JSON.parse(raw)}
+  catch(e){
+    CORRUPT=true;
+    /* keep the bytes; a human can still get data out of them */
+    try{if(!STORE.get(K+'__corrupt'))STORE.set(K+'__corrupt',raw)}catch(_){}
+    return migrate(JSON.parse(JSON.stringify(DEF)));
+  }
+  /* Parsing is not the same as being readable. A record can be perfectly valid
+     JSON and still be structurally wrong — `logs` arriving as a string is the
+     case that caught this out: deep() does not throw, migrate() iterates the
+     string's character indices, and the result is a plausible-looking empty
+     record that then overwrites the real one on the first save. Anything that
+     is not the shape we wrote is treated as corrupt and preserved. */
+  if(!looksLikeRecord(r)){
+    CORRUPT=true;
+    try{if(!STORE.get(K+'__corrupt'))STORE.set(K+'__corrupt',raw)}catch(_){}
+    return migrate(JSON.parse(JSON.stringify(DEF)));
+  }
+  try{return migrate(deep(DEF,r))}
+  catch(e){
+    CORRUPT=true;
+    try{if(!STORE.get(K+'__corrupt'))STORE.set(K+'__corrupt',raw)}catch(_){}
+    return migrate(JSON.parse(JSON.stringify(DEF)));
+  }
+}
+function isObj(v){return !!v&&typeof v==='object'&&!Array.isArray(v)}
+function looksLikeRecord(r){
+  if(!isObj(r))return false;
+  /* every container we later iterate must actually be a container */
+  if('logs' in r&&!isObj(r.logs))return false;
+  if('settings' in r&&!isObj(r.settings))return false;
+  if('journal' in r&&!isObj(r.journal))return false;
+  if('food' in r&&!isObj(r.food))return false;
+  if('pbs' in r&&!isObj(r.pbs))return false;
+  if('active' in r&&!isObj(r.active))return false;
+  /* and every list must be a list */
+  if('photos' in r&&!Array.isArray(r.photos))return false;
+  if('mine' in r&&!Array.isArray(r.mine))return false;
+  if('assess' in r&&!Array.isArray(r.assess))return false;
+  return true;
+}
 
 /* ---- MIGRATION: one session per day -> MANY ----
    Up to v4 a day held exactly ONE session object at D.logs[date]. Starting a
@@ -304,11 +557,32 @@ function migrate(d){
   }
   d.photos=d.photos||[];
   d.ui=d.ui||{sidx:0};
+  /* which collapsible sections are open. Beta 2.0; absent on older records. */
+  d.ui.sec=d.ui.sec||{};
+  d.rest=d.rest||{};                 // queue-mode off-day record, Beta 2.0
+  /* migrate() can be handed a record with no settings at all — a hand-written
+     backup, or a test fixture. Never assume a sub-object exists here. */
+  d.settings=d.settings||{};
+  /* NOTE: the GoWod score seeding does NOT live here, and must not be moved
+     back. migrate() runs inside THIS inline script, which the browser executes
+     BEFORE data.js — so MOBSCORES does not exist yet. The first version guarded
+     with `typeof MOBSCORES!=='undefined'` and fell through to `{}`; because
+     `{}` is truthy the "not set yet" check then never fired again on any later
+     boot, so the seed was permanently dead and Juan's scores never landed.
+     It is now seedMobScores() in app.js, called at boot once data.js is in. */
   return d;
 }
 function deep(d,r){const o=JSON.parse(JSON.stringify(d));for(const k in r){
   if(r[k]&&typeof r[k]==='object'&&!Array.isArray(r[k])&&o[k])o[k]=deep(o[k],r[k]);else o[k]=r[k]}return o}
-function save(){localStorage.setItem(K,JSON.stringify(D))}
+/* Three guards, each of which was a real failure mode:
+   - no key  → nobody is signed in, so there is no record this belongs to
+   - CORRUPT → refuse to overwrite bytes we could not read
+   Returns false when it did not write, so callers can react instead of
+   assuming success. */
+function save(){
+  if(!K||CORRUPT)return false;
+  return STORE.setJson(K,D);
+}
 function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
 function fmt(n,d){return Number(n||0).toFixed(d===undefined?0:d)}
 const CHK='<svg viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>';

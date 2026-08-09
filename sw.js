@@ -1,14 +1,43 @@
 /* JHFP service worker — offline-first so the app works in the gym with no signal */
 /* Bump this version string on every release — it is what triggers the
-   auto-update on Juan's phone. BETA 1.2: the 3-dot exercise menu actually works
-   — the Train view now renders from the LOG rather than the programme, so the
-   loop index IS the log index. Move physically moves the card, Remove strikes it
-   through and locks its inputs, and removing an exercise no longer shifts the
-   one below it (which was logging sets against the wrong exercise). Swap adopts
-   the new movement's own rep range and rest. Typing 1 turns into BW on the spot.
-   Back is one whole region again in Progress and on the diagram. New icon built
-   from Juan's own kettlebell artwork, ember, filling the canvas. */
-const C = 'jhfp-beta-1.2';
+   auto-update on Juan's phone.
+
+   BETA 2.0 · run 1 of 4 — IDENTITY & ACCESS. The app now opens on a login
+   portal rather than straight into somebody's log: profiles gained usernames,
+   salted SHA-256 passwords and pictures, the master account (Juvies7) gained a
+   Manage Accounts screen under Profile, and a forgotten password is reset by
+   the master rather than by email, since there is no server to email from. All
+   storage moved behind a STORE adapter so a cloud backend can be added later
+   without touching 2,000 lines of callers. New icon: deep ember, black bell.
+   Juan's existing jhfp_v1 record and his active P4 block are untouched. */
+/* BETA 2.0 · run 2 of 4 — STRUCTURE & DESIGN. Progress and More are no longer
+   single long scrolls: sections collapse to tappable headings that alternate
+   ember and glacier, and remember how you left them. Programme and Volume stay
+   pinned open. More is reordered to Profile, Data, Tools, then the libraries.
+   On Today the quote moved up under the stat cards and the daily protocol
+   became a heading carrying its own done-count. Back anatomy: shorter traps,
+   wider and deeper lats. Every exercise picker is now grouped and ordered
+   Kettlebell, Rings, Calisthenics, Gym, Cardio. */
+/* BETA 2.0 · run 3 of 4 — THE TRAINING ENGINE. The programme stopped being a
+   calendar and became a QUEUE: a missed session is what tomorrow shows, rest
+   and sport days slide with it, and the week advances on work completed rather
+   than days elapsed. A week picker at the top of Train overrides it, and
+   picking out of order never consumes the session you still owe. Adventurer
+   (P11) added as a no-programme mode and the default for NEW profiles only.
+   Automatic workout generator built from the exercise library, enforcing the
+   volume ceilings. Every complex and workout with a benchmark parameter is now
+   scorable. Date arithmetic moved to UTC after a DST bug that froze the queue
+   permanently once a year in any zone that observes it. */
+/* BETA 2.0 · run 4 of 4 — CONTENT & THE BOOKEND. Finishing the last workout of
+   the last week now CLOSES a block: it banks a summary of what the block
+   produced, files it under Workout history, and drops onto Adventurer until you
+   pick the next one. Seventeen complexes ported from the Hard to Kill note.
+   Two new programmes: Farm Strong (kettlebell & sandbag, five movements a
+   session, high sets) and Walk Before You Fly (beginners and older bodies, no
+   pull-ups, no bells, no skill required). P7 renamed to Nimsdai Purja - Trail &
+   Summit. Mobility rebuilt on the six GoWod zones with a daily rotating
+   fifteen-minute routine weighted toward the weakest three. */
+const C = 'jhfp-beta-2.0';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
