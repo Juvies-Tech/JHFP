@@ -37,7 +37,13 @@
    pull-ups, no bells, no skill required). P7 renamed to Nimsdai Purja - Trail &
    Summit. Mobility rebuilt on the six GoWod zones with a daily rotating
    fifteen-minute routine weighted toward the weakest three. */
-const C = 'jhfp-beta-2.0';
+/* BETA 2.1 — polish pass after Beta 2.0 went live. The gate's philosophy
+   headline no longer inherits the empty progress-photo box (a CSS class
+   collision on ".ph"), the gate now leads with a permanent, non-collapsible
+   warning that the log lives on this phone only and must be backed up weekly,
+   and both backup filenames (Backup all data .json, Export to Obsidian .md)
+   now carry the signed-in profile's name ahead of the date. */
+const C = 'jhfp-beta-2.1';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
