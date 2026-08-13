@@ -257,6 +257,14 @@ function sessById(id){if(!id)return null;
      or a kettlebell complex can be run on ANY day of ANY programme, as a second
      workout or a replacement, without disturbing the block. */
   if(id.indexOf('kbx_')===0)return kbxSession(id.slice(4));
+  /* Beta 2.2. Missing this line is not cosmetic: sessFor() resolves today's
+     chosen session through here, so a sandbag complex started and then left —
+     phone locked, app swiped away — would fail to reopen and the logged sets
+     would be stranded behind a session that no longer resolves. It survived
+     the first pass only because D.custom is checked above and startSbx parks
+     it there; the moment the record is restored from a backup, D.custom is
+     rebuilt and this is the only path left. */
+  if(id.indexOf('sbx_')===0)return sbxSession(id.slice(4));
   if(id.indexOf('cal_')===0)return calSession(id.slice(4));
   const x=XTRAORDER.map(k=>XTRA[k]).find(s=>s.id===id);
   return x||null}
@@ -337,6 +345,12 @@ function pickOther(pid,sid){
 
 /* Start an optional extra without touching the programme schedule. */
 function startKbx(k){const s=kbxSession(k);if(!s)return;
+  D.custom[s.id]=s;save();close_();freeSession(s.id)}
+/* Sandbag complexes run through exactly the same path as the bells — build the
+   session, park it in D.custom (mutating P does not persist), start it. Kept as
+   its own function rather than a flag on startKbx so that a wrong id can never
+   silently resolve against the other table. */
+function startSbx(k){const s=sbxSession(k);if(!s)return;
   D.custom[s.id]=s;save();close_();freeSession(s.id)}
 function startXtra(k){const x=XTRA[k];if(!x)return;
   D.custom[x.id]=x;save();close_();freeSession(x.id)}
@@ -621,8 +635,63 @@ function avgEffort(days){const cut=todayISO(new Date(Date.now()-(days-1)*864e5))
     if(k>=cut&&l.done&&l.effort)es.push(+l.effort)});
   return es.length?(es.reduce((a,b)=>a+b,0)/es.length):0}
 
+/* ================= THE DAILY PROTOCOL, AS CONFIGURED =================
+   Beta 2.2. Nothing may read the raw JOURNAL constant any more — the tracker,
+   the counts, the streak and the export all go through journalItems(), which
+   applies the user's own on/off list and appends their custom habits.
+
+   Reading JOURNAL directly is the whole bug class this replaces: a "3 of 12"
+   count against a tracker showing nine rows, a streak needing 75% of twelve
+   when only nine exist, an export listing habits that are not on screen. If
+   you add a caller, call this. There is a test asserting JOURNAL appears
+   nowhere in app.js except inside this function. */
+function journalItems(){
+  const P=(D&&D.protocol)||{},off=Array.isArray(P.off)?P.off:[],add=Array.isArray(P.add)?P.add:[];
+  return JOURNAL.filter(x=>off.indexOf(x.k)<0)
+    .concat(add.filter(x=>x&&x.k&&x.t).map(x=>({k:x.k,t:x.t,m:x.m||'',custom:1})));
+}
+/* The built-ins currently switched off, in JOURNAL's own order rather than the
+   order they happened to be switched off in — the restore list should read the
+   same way every time it is opened. */
+function journalOff(){
+  const off=((D&&D.protocol)||{}).off||[];
+  return JOURNAL.filter(x=>off.indexOf(x.k)>=0);
+}
+function jAdd(t,m){
+  t=(t||'').trim();if(!t)return false;
+  D.protocol=D.protocol||{off:[],add:[]};
+  /* `x_` prefix + timestamp: unique against the built-ins forever, including
+     against built-ins that do not exist yet. Two habits added in the same
+     millisecond would collide, so the loop bumps until the key is free. */
+  let k='x_'+Date.now(),n=0;
+  const taken=journalItems().map(x=>x.k);
+  while(taken.indexOf(k)>=0)k='x_'+Date.now()+'_'+(++n);
+  D.protocol.add.push({k:k,t:t.slice(0,60),m:(m||'').trim().slice(0,140)});
+  return save();
+}
+function jHide(k){
+  D.protocol=D.protocol||{off:[],add:[]};
+  if(D.protocol.off.indexOf(k)<0)D.protocol.off.push(k);
+  return save();
+}
+function jShow(k){
+  D.protocol=D.protocol||{off:[],add:[]};
+  D.protocol.off=D.protocol.off.filter(x=>x!==k);
+  return save();
+}
+/* Custom habits are removable outright. The ticks are deliberately NOT purged
+   from D.journal — re-adding the habit under the same name will not bring them
+   back (the key is new), but the raw record still holds the history for an
+   export or a manual recovery, and purging it would be the one destructive
+   action in this whole feature. */
+function jDrop(k){
+  D.protocol=D.protocol||{off:[],add:[]};
+  D.protocol.add=D.protocol.add.filter(x=>x.k!==k);
+  return save();
+}
+
 /* ================= STREAKS ================= */
-function jDone(k){const j=D.journal[k];if(!j)return 0;return JOURNAL.filter(x=>j[x.k]).length}
+function jDone(k){const j=D.journal[k];if(!j)return 0;return journalItems().filter(x=>j[x.k]).length}
 /* ---- TRAINING STREAK ----
    The old "Streak" card counted the 12-item daily protocol and needed 9 of them
    ticked, so two workouts in a day still read 0 — which is exactly what confused
@@ -672,8 +741,15 @@ function trainStreak(){
   return n;
 }
 function streak(){let n=0,d=new Date();
-  if(jDone(todayISO(d))<JOURNAL.length*0.75)d=new Date(d.getTime()-864e5);
-  for(;;){const k=todayISO(d); if(jDone(k)>=JOURNAL.length*0.75){n++;d=new Date(d.getTime()-864e5)}else break; if(n>999)break}
+  /* 75% of the CONFIGURED list, not of the twelve built-ins. Trimming the
+     protocol to six habits and then still needing nine ticks to hold a streak
+     would make the editor actively punishing to use. Guard the empty case:
+     with no habits at all the bar is 0 and jDone is 0, and 0>=0 would run the
+     loop to its 999 ceiling and report a streak of 999 days of nothing. */
+  const need=journalItems().length*0.75;
+  if(need<=0)return 0;
+  if(jDone(todayISO(d))<need)d=new Date(d.getTime()-864e5);
+  for(;;){const k=todayISO(d); if(jDone(k)>=need){n++;d=new Date(d.getTime()-864e5)}else break; if(n>999)break}
   return n;
 }
 function mobStreak(){let n=0,d=new Date();
@@ -894,10 +970,14 @@ function rToday(){
   }
 
   const jd=jDone(k),ts=trainStreak(),nToday=todayLogs().filter(l=>l.done).length;
+  /* Resolved ONCE per render and passed down. Calling journalItems() inside the
+     section body closure as well would rebuild the list after an edit sheet had
+     already changed it, and the heading count and the rows would disagree. */
+  const JI=journalItems();
   h+=`<div class="grid3" style="margin-bottom:10px">
     <div class="stat acc"><div class="tiny">Training streak</div><div class="big">${ts}</div>
       <div class="jm" style="margin-top:2px">${nToday?nToday+' today':(isRestDay(new Date())?'Rest day — held':'Train to extend')}</div></div>
-    <div class="stat ice"><div class="tiny">Protocol</div><div class="big">${jd}<span style="font-size:15px;color:var(--tx3)">/${JOURNAL.length}</span></div></div>
+    <div class="stat ice"><div class="tiny">Protocol</div><div class="big">${jd}<span style="font-size:15px;color:var(--tx3)">/${JI.length}</span></div></div>
     <div class="stat grn"><div class="tiny">Block</div><div class="big">${progPct()}<span style="font-size:15px;color:var(--tx3)">%</span></div></div>
   </div>`;
 
@@ -908,11 +988,14 @@ function rToday(){
   /* Daily protocol is now a collapsible heading. The count lives in the meta,
      so the day's progress is readable WITHOUT opening it — a checklist you
      have to expand to see the state of would be a worse checklist. */
-  h+=sect('protocol','Daily protocol',{tone:'ice',meta:jd+' of '+JOURNAL.length+' done'},()=>{
+  h+=sect('protocol','Daily protocol',{tone:'ice',meta:jd+' of '+JI.length+' done'},()=>{
     let b=`<div class="card ice" style="margin-bottom:0"><div class="row sp" style="margin-bottom:4px">
       <div class="lbl" style="margin:0">Tick them off</div>
-      <button class="btn sm gh" onclick="jAll()">All</button></div>`;
-    JOURNAL.forEach(j=>{const on=D.journal[k]&&D.journal[k][j.k];
+      <span class="row" style="gap:7px">
+        <button class="btn sm gh" onclick="open_('protoedit')">Edit</button>
+        <button class="btn sm gh" onclick="jAll()">All</button></span></div>`;
+    if(!JI.length)b+=`<div class="jm" style="padding:10px 0">No habits in your protocol. Tap Edit to add one, or switch the built-ins back on.</div>`;
+    JI.forEach(j=>{const on=D.journal[k]&&D.journal[k][j.k];
       b+=`<div class="jr" onclick="jTick('${escId(j.k)}')"><div class="jb ${on?'on':''}">${CHK}</div>
         <div style="flex:1"><div class="jt">${esc(j.t)}</div>${j.m?`<div class="jm">${esc(j.m)}</div>`:''}</div></div>`});
     return b+`</div>`;});
@@ -936,7 +1019,32 @@ function rToday(){
 function jTick(k){const d=todayISO();D.journal[d]=D.journal[d]||{};
   D.journal[d][k]=!D.journal[d][k];save();render()}
 function jAll(){const d=todayISO();D.journal[d]=D.journal[d]||{};
-  const all=JOURNAL.every(j=>D.journal[d][j.k]);JOURNAL.forEach(j=>D.journal[d][j.k]=!all);save();render()}
+  const JI=journalItems();if(!JI.length)return;
+  /* Toggles only what is CONFIGURED. A hidden built-in must not be ticked by
+     "All" — it is not on screen, so ticking it would silently inflate jDone()
+     the moment it was switched back on. */
+  const all=JI.every(j=>D.journal[d][j.k]);JI.forEach(j=>D.journal[d][j.k]=!all);save();render()}
+
+/* ---- the protocol editor sheet ----
+   Add, remove and restore. Deliberately a sheet rather than an inline mode on
+   the checklist: the daily job is ticking boxes, and a tracker that can be
+   restructured by a mis-tap while you are ticking it is a tracker you stop
+   trusting. */
+function protoAdd(){
+  const t=(document.getElementById('pa_t')||{}).value||'';
+  const m=(document.getElementById('pa_m')||{}).value||'';
+  if(!t.trim()){alert('Give the habit a name.');return}
+  if(journalItems().length>=30){alert('Thirty habits is already more protocol than anyone keeps. Trim before adding.');return}
+  if(!jAdd(t,m)){alert('Could not save — the phone refused the write. Check storage space.');return}
+  render();open_('protoedit');
+}
+function protoHide(k){jHide(k);render();open_('protoedit')}
+function protoShow(k){jShow(k);render();open_('protoedit')}
+function protoDrop(k){
+  const it=journalItems().find(x=>x.k===k);
+  if(!confirm('Remove "'+((it&&it.t)||'this habit')+'" from your protocol?'))return;
+  jDrop(k);render();open_('protoedit');
+}
 
 /* ================= TRAIN ================= */
 function rTrain(){
@@ -1412,6 +1520,113 @@ function bSave(start){
 function delWorkout(id){if(!confirm('Delete this workout?'))return;
   D.mine=D.mine.filter(x=>x.id!==id);delete D.custom[id];save();close_();go('more')}
 
+/* ================= FUEL CONSISTENCY (Beta 2.2) =================
+   Three questions, in the order Juan asked them: am I hitting the goals, what
+   is the streak, and if I carried on exactly like this, where does my
+   bodyweight end up.
+
+   THE ONE RULE THAT MATTERS: a day with NO food logged is not a day at zero
+   calories. It is a day with no data. Averaging empty days in as -3,500 kcal
+   would report a catastrophic deficit for anyone who forgets to log over a
+   weekend, and the projection built on top of it would tell them they are
+   wasting away. Every function below only ever looks at days that have at
+   least one food entry, and every figure is reported alongside how many days
+   that actually was, so a 30-day panel built on four logged days says so. */
+
+/* ±10% band, Juan's choice. Symmetric on purpose: on a lean bulk, 4,200 kcal
+   is as much a miss as 2,800 is — one of them just misses in the direction
+   that feels like winning. */
+const FUEL_BAND=0.10;
+function fuelTot(k){
+  const f=D.food[k];if(!f||!f.length)return null;
+  return f.reduce((a,x)=>({k:a.k+(+x.k||0),p:a.p+(+x.p||0),f:a.f+(+x.f||0)}),{k:0,p:0,f:0});
+}
+function fuelGoals(){const S=D.settings||{};
+  return {k:+S.kcal||0,p:+S.protein||0,f:+S.fat||0};}
+/* Did this day land inside the band on this metric? Returns null — NOT false —
+   when there is nothing logged or no goal set, because "missed" and "unknown"
+   have to stay distinguishable all the way up the stack. */
+function fuelHit(k,which){
+  const t=fuelTot(k);if(!t)return null;
+  const g=fuelGoals()[which||'k'];if(!g)return null;
+  return Math.abs(t[which||'k']-g)<=g*FUEL_BAND;
+}
+/* Consecutive days ending today that hit the CALORIE goal.
+   Today is allowed to be incomplete: if today has not been hit yet the streak
+   is measured to yesterday rather than reported as zero, exactly like the
+   training streak. Eating breakfast should not read as a broken streak.
+   An unlogged day breaks it — that is the honest answer, since we cannot know
+   what happened, and a streak that survives gaps is not a streak. */
+function fuelStreak(){
+  let n=0,d=new Date();
+  if(fuelHit(todayISO(d),'k')!==true)d=new Date(d.getTime()-864e5);
+  for(let i=0;i<400;i++){
+    if(fuelHit(todayISO(d),'k')===true){n++;d=new Date(d.getTime()-864e5)}else break;
+  }
+  return n;
+}
+function fuelBest(){
+  /* Longest calorie streak on record, so the current one has something to be
+     measured against. Walks the logged dates rather than the calendar. */
+  const keys=Object.keys(D.food||{}).filter(k=>fuelTot(k)).sort();
+  let best=0,run=0,prev=null;
+  keys.forEach(k=>{
+    if(fuelHit(k,'k')!==true){run=0;prev=k;return}
+    run=(prev&&shiftISO(prev,1)===k)?run+1:1;
+    if(run>best)best=run;prev=k;
+  });
+  return best;
+}
+/* The window summary. `days` counts only days with food logged; `hit` counts
+   how many of those landed in the band, per metric; `d*` are the cumulative
+   over/under in kcal and grams across those days. */
+function fuelWindow(n){
+  const g=fuelGoals();
+  const out={days:0,span:n,hitK:0,hitP:0,hitF:0,dk:0,dp:0,df:0,tk:0,goalK:g.k};
+  for(let i=0;i<n;i++){
+    const key=shiftISO(todayISO(),-i),t=fuelTot(key);
+    if(!t)continue;
+    out.days++;out.tk+=t.k;
+    out.dk+=t.k-g.k;out.dp+=t.p-g.p;out.df+=t.f-g.f;
+    if(g.k&&Math.abs(t.k-g.k)<=g.k*FUEL_BAND)out.hitK++;
+    if(g.p&&Math.abs(t.p-g.p)<=g.p*FUEL_BAND)out.hitP++;
+    if(g.f&&Math.abs(t.f-g.f)<=g.f*FUEL_BAND)out.hitF++;
+  }
+  return out;
+}
+/* "If you kept eating like this."
+   Method, stated plainly because a projection whose assumptions are hidden is
+   just a number that feels authoritative:
+     · 7,700 kcal ≈ 1 kg of bodyweight change. Standard energy-balance figure.
+     · The rate used is the AVERAGE DAILY over/under across the logged days in
+       the window — not the total. Six logged days out of thirty projects at
+       six days' worth of average, not at a thirtieth of the answer.
+     · Surplus splits roughly 50/50 lean:fat for a trained 22-year-old lean
+       bulking with protein met. A deficit is assumed to come off ~75/25
+       fat:lean, because that is the point of eating enough protein and
+       lifting — the body defends muscle on the way down more than it favours
+       it on the way up.
+     · Lean gain is only credited on the surplus side when protein is being
+       hit at least half the time. Calories build the tissue; protein is the
+       material. A surplus of pure fat and no protein is a fat gain.
+   Every one of these is a population average applied to one person. It is a
+   direction of travel, not a promise, and the panel says so. */
+function fuelProject(w,weeks){
+  if(!w.days||!w.goalK)return null;
+  const perDay=w.dk/w.days;
+  const kg=perDay*7*weeks/7700;
+  const protOk=w.days?(w.hitP/w.days)>=0.5:false;
+  let lean,fat;
+  if(kg>=0){lean=protOk?kg*0.5:kg*0.25;fat=kg-lean;}
+  else{fat=kg*0.75;lean=kg-fat;}
+  return {weeks:weeks,perDay:perDay,kg:kg,lean:lean,fat:fat,protOk:protOk};
+}
+function fuelPct(a,b){return b?Math.round(a/b*100):0}
+function sgn(n,unit){const v=Math.abs(n)<0.05?0:n;
+  return (v>0?'+':v<0?'−':'')+fmt(Math.abs(Math.round(v)))+(unit||'');}
+function sgn1(n,unit){const v=n;
+  return (v>0.05?'+':v<-0.05?'−':'')+Math.abs(v).toFixed(1)+(unit||'');}
+
 /* ================= FUEL ================= */
 function rFuel(){
   const k=todayISO(),f=D.food[k]||[],S=D.settings;
@@ -1429,11 +1644,86 @@ function rFuel(){
     </div></div>
     <button class="btn p" onclick="open_('food')">Add food</button>`;
 
+
   if(f.length){h+=`<div class="card" style="margin-top:10px"><div class="lbl">Today</div>`;
     f.forEach((x,i)=>{h+=`<div class="fi"><span>${esc(x.n)} <span style="color:var(--tx3)">${x.g}g</span></span>
       <span class="row" style="gap:11px"><span class="mono">${fmt(x.k)} kcal</span>
       <button onclick="delFood(${i})" style="color:var(--tx3)">✕</button></span></div>`});
     h+=`</div>`}
+
+  /* ---- CONSISTENCY ----
+     Collapsible, and pinned open, because it is the reason to open Fuel on a
+     day you have not eaten yet. Everything in it is derived from logged days
+     only — see the note on fuelWindow. */
+  const w7=fuelWindow(7),w30=fuelWindow(30),fs=fuelStreak(),fb=fuelBest();
+  const pr4=fuelProject(w30.days>=4?w30:w7,4),pr12=fuelProject(w30.days>=4?w30:w7,12);
+  const basis=(w30.days>=4?w30:w7);
+  /* Collapsible but OPEN by default (`start:1`), not pinned. sect() only knows
+     two tones — anything that is not 'ice' renders as 'acc' — so do not pass
+     'red' here expecting a red edge; it silently becomes ember. */
+  h+=sect('fuelcons','Consistency',{tone:'acc',start:1,
+    meta:w7.days?fuelPct(w7.hitK,w7.days)+'% on target, 7d':'nothing logged yet'},()=>{
+    if(!w30.days)return `<div class="card red" style="margin-bottom:0"><div class="jm">Log a few days of food and this fills in: how often you land inside ${Math.round(FUEL_BAND*100)}% of your goals, the streak you are on, and where your weight is heading if you keep going exactly like this.</div></div>`;
+    let b=`<div class="grid3" style="margin-bottom:10px">
+      <div class="stat red"><div class="tiny">Streak</div><div class="big">${fs}</div>
+        <div class="jm" style="margin-top:2px">${fs?'day'+(fs===1?'':'s')+' on target':'start today'}</div></div>
+      <div class="stat amb"><div class="tiny">Best</div><div class="big">${fb}</div>
+        <div class="jm" style="margin-top:2px">longest run</div></div>
+      <div class="stat grn"><div class="tiny">On target 30d</div><div class="big">${fuelPct(w30.hitK,w30.days)}<span style="font-size:15px;color:var(--tx3)">%</span></div>
+        <div class="jm" style="margin-top:2px">${w30.hitK} of ${w30.days} days</div></div>
+    </div>`;
+
+    /* The over/under table. Both windows, all three metrics, average per day
+       AND the cumulative — the average is what you act on, the cumulative is
+       what actually moved the scale. */
+    const row=(lbl,w)=>{
+      if(!w.days)return `<div class="tst"><div style="flex:1"><div style="font-weight:600;font-size:14px">${lbl}</div>
+        <div class="jm">nothing logged in this window</div></div></div>`;
+      const per=x=>w.days?x/w.days:0;
+      return `<div style="padding:10px 0;border-bottom:1px solid var(--bd)">
+        <div class="row sp" style="margin-bottom:7px">
+          <div style="font-weight:600;font-size:14px">${lbl}</div>
+          <span class="pill ${fuelPct(w.hitK,w.days)>=70?'g':''}">${w.hitK}/${w.days} on target</span></div>
+        <div class="grid3">
+          <div><div class="tiny">Calories</div>
+            <div class="mid mono" style="color:${Math.abs(per(w.dk))<=w.goalK*FUEL_BAND?'var(--tx)':'var(--acc2)'}">${sgn(per(w.dk))}</div>
+            <div class="jm">${sgn(w.dk)} total</div></div>
+          <div><div class="tiny">Protein</div>
+            <div class="mid mono">${sgn(per(w.dp),'g')}</div>
+            <div class="jm">${w.hitP}/${w.days} on target</div></div>
+          <div><div class="tiny">Fat</div>
+            <div class="mid mono">${sgn(per(w.df),'g')}</div>
+            <div class="jm">${w.hitF}/${w.days} on target</div></div>
+        </div></div>`};
+    b+=`<div class="card red"><div class="lbl">Over / under · average per logged day</div>
+      ${row('Last 7 days',w7)}${row('Last 30 days',w30)}
+      <div class="jm" style="margin-top:9px">On target means within ${Math.round(FUEL_BAND*100)}% of the goal, over or under${w30.goalK?` — ${fmt(w30.goalK*(1-FUEL_BAND))}–${fmt(w30.goalK*(1+FUEL_BAND))} kcal`:' (set your calorie goal under More → Profile first)'}. Days with no food logged are left out entirely rather than counted as zero.</div></div>`;
+
+    /* The projection. Deliberately shows the ASSUMPTIONS in the card, not in a
+       footnote — the number is only as good as they are. */
+    if(pr4&&pr12&&basis.days>=3){
+      const card=(pr)=>`<div style="flex:1;min-width:0">
+        <div class="tiny">${pr.weeks} weeks</div>
+        <div class="big mono" style="color:${pr.kg>=0?'var(--acc)':'var(--ice)'}">${sgn1(pr.kg,'kg')}</div>
+        <div class="jm" style="margin-top:3px">${sgn1(pr.lean,'kg')} lean<br>${sgn1(pr.fat,'kg')} fat</div></div>`;
+      b+=`<div class="card amb" style="margin-top:10px">
+        <div class="lbl">If you kept eating exactly like this</div>
+        <div class="note" style="margin-bottom:11px">You are averaging <b>${sgn(pr4.perDay)} kcal a day</b> against your ${fmt(basis.goalK)} goal across ${basis.days} logged day${basis.days===1?'':'s'}. At 7,700 kcal per kilo of bodyweight, that is:</div>
+        <div class="row" style="gap:16px;align-items:flex-start">${card(pr4)}${card(pr12)}</div>
+        <div class="jm" style="margin-top:12px;line-height:1.5">
+          <b>How this is worked out.</b> ${pr4.kg>=0
+            ? (pr4.protOk
+               ? 'A surplus is split about half lean, half fat — realistic for someone training hard and hitting their protein target, which you are doing on '+basis.hitP+' of '+basis.days+' logged days.'
+               : 'You are hitting protein on fewer than half your logged days, so only a quarter of the gain is credited as lean. Calories build the tissue; protein is the material it is built from.')
+            : 'Weight coming off is assumed to be about three-quarters fat, one-quarter lean — the split you get when protein is high and you are still lifting.'}
+          These are population averages applied to one person. Treat it as a direction of travel and let the scale and the mirror settle the argument.</div>
+        ${basis.days<7?`<div class="warnbox" style="margin-top:10px">Only ${basis.days} logged day${basis.days===1?'':'s'} behind this. Log a full week before you believe the number.</div>`:''}
+      </div>`;
+    }else{
+      b+=`<div class="card amb" style="margin-top:10px"><div class="lbl">If you kept eating exactly like this</div>
+        <div class="jm" style="margin-top:6px">Needs at least three logged days before it will guess at a direction. ${basis.days} so far.</div></div>`;
+    }
+    return b;});
 
   h+=`<div class="sec">Bulking carnivore · your meals</div><div class="card">`;
   MEALS.bulk.forEach(m=>{h+=`<div style="padding:9px 0;border-bottom:1px solid var(--bd)">
@@ -1668,6 +1958,20 @@ function rMore(){
         <div style="font-weight:600;font-size:14px">${esc(c.n)}${c.bench?' <span class="pill a">Benchmark</span>':''}</div>
         <div class="jm">${c.seq.map(x=>x[1]+' '+esc(x[0].replace(/^KB /,''))).join(' \u00b7 ')} \u00b7 ${c.rounds} rounds</div></div>
         <button class="btn sm gh" onclick="startKbx('${escId(k)}')">Start</button></div>`});
+    return b;});
+
+  /* Its own section next to the bells, on Juan's call — a sandbag is a
+     different piece of kit with a different gate, and burying five bag
+     complexes in a list of twenty-four bell complexes hides them. Green
+     rather than glacier so the two read apart at a glance. */
+  h+=sect('m_sbx','Sandbag complexes',{tone:'acc',meta:SBXORDER.length+' complexes'},()=>{
+    let b=`<div class="note" style="margin-bottom:10px">The five named bag complexes out of the Hard to Kill note. Every one is scored — finish it and log the time or the rounds under Progress. Lift, carry, throw.</div>`;
+    b+=`<div class="warnbox" style="margin-bottom:10px">These need a bag. Tick <b>Sandbag</b> in the workout generator's kit list and it will start using the bag movements too. Goliath and Atlas want the heavy one; Milo, Spartan and Viking run better on the lighter bag until the technique is there.</div>`;
+    SBXORDER.forEach(k=>{const c=SBX[k];
+      b+=`<div class="tst"><div style="flex:1" onclick="open_('sbx','${escId(k)}')">
+        <div style="font-weight:600;font-size:14px">${esc(c.n)} <span class="pill a">Benchmark</span></div>
+        <div class="jm">${c.seq.map(x=>(x[2]==='m'?x[1]+'m ':x[1]+' ')+esc(x[0].replace(/^Sandbag /,''))).join(' · ')} · ${c.mode==='amrap'?c.mins+' min AMRAP':c.rounds+' rounds'}</div></div>
+        <button class="btn sm gh" onclick="startSbx('${escId(k)}')">Start</button></div>`});
     return b;});
 
   h+=sect('m_cal','Calisthenics workouts',{tone:'acc',meta:CALORDER.length+' workouts'},()=>{
@@ -2069,7 +2373,7 @@ const PHIL=[
    views live inside the app shell and assume a loaded profile, whereas the gate
    has to work before we know whose data to load. It owns its own tiny bit of
    state (GATE) and its own render, and it hands off to the app exactly once. */
-let GATE={mode:'in',pid:null,err:'',ok:'',phil:false,pic:''};
+let GATE={mode:'in',pid:null,err:'',ok:'',phil:false,note:false,pic:''};
 
 function gateBoot(){
   const s=profileState();
@@ -2093,6 +2397,7 @@ function gateDone(){
 function gateGo(m){GATE.mode=m;GATE.err='';GATE.ok='';gateRender()}
 function gatePick(id){GATE.pid=id;GATE.mode='in';GATE.err='';gateRender()}
 function gatePhil(){GATE.phil=!GATE.phil;gateRender()}
+function gateNote(){GATE.note=!GATE.note;gateRender()}
 function gval(id){const e=document.getElementById(id);return e?e.value:''}
 
 function gateRender(){
@@ -2103,17 +2408,14 @@ function gateRender(){
     <div class="gtitle">Juvies Health &amp; Fitness</div>
     <div class="gsub">Protocol</div>`;
 
-  /* Prioritised, not collapsed — this app has no server, so "forgot to back up"
-     is the one mistake that actually loses someone's log for good. It sits
-     above sign-in on every screen of the gate, not folded away like the
-     philosophy teaser below. */
-  h+=`<div class="gwarn">
-      <div class="gwt">⚠ Your data lives on this phone only</div>
-      <div class="jm">Nothing is uploaded anywhere — that is deliberate for now. But it also means
-        <b>uninstalling the app, resetting the phone, or clearing site data erases your log for good.</b>
-        Back it up weekly: <b>More → Data → Backup all data</b>, then send Juan the file so he can keep
-        a copy safe in the vault.</div>
-    </div>`;
+  /* BETA 2.2 — the data warning moved. It used to sit here, above sign-in, in
+     full, on every screen of the gate. That was the right instinct and the
+     wrong execution: an unmissable amber block is the first thing anyone saw
+     before they had even typed a password, which made the login screen read
+     as a hazard notice. It now sits BELOW the About panel as an expandable
+     "Data Usage Note", collapsed by default — see the block after the
+     philosophy card. The substance is unchanged and it is still on every
+     screen of the gate; it is just no longer shouting. */
 
   if(GATE.err)h+=`<div class="gcard" style="padding:0;background:none;border:none;backdrop-filter:none;margin-top:16px"><div class="gerr">${esc(GATE.err)}</div></div>`;
 
@@ -2202,6 +2504,31 @@ function gateRender(){
     PHIL.forEach((x,i)=>{h+=`<div class="pt"><div class="pn">${String(i+1).padStart(2,'0')}</div>
       <div style="flex:1"><div class="phh">${esc(x.h)}</div><div class="phb">${esc(x.b)}</div></div></div>`});
     h+=`</div>`;
+  }
+  h+=`</div>`;
+
+  /* ---- Data Usage Note ----
+     Collapsed, but never removed. The one-line summary in the closed state has
+     to carry the actual risk — "Data Usage Note ›" on its own tells nobody
+     anything, and a warning you have to open to discover is not a warning.
+     Expanded it says exactly what the old amber block said. */
+  h+=`<div class="gcard phil">
+    <button class="row sp" style="width:100%;text-align:left" onclick="gateNote()">
+      <div style="flex:1">
+        <div style="font-weight:700;font-size:15px">⚠️ Data Usage Note</div>
+        <div class="jm" style="margin-top:2px">${GATE.note?'Tap to close':'Your log lives on this phone only · back it up weekly'}</div>
+      </div>
+      <span style="color:var(--acc);font-size:19px">${GATE.note?'−':'+'}</span></button>`;
+  if(GATE.note){
+    h+=`<div class="gwarn" style="margin-top:12px">
+      <div class="gwt">⚠ Nothing is uploaded anywhere</div>
+      <div class="jm">That is deliberate for now — but it also means
+        <b>uninstalling the app, resetting the phone, or clearing site data erases your log for good.</b>
+        Back it up weekly: <b>More → Data → Backup all data</b>, then send Juan the file so he can keep
+        a copy safe in the vault.</div></div>
+    <div class="jm" style="margin-top:10px;line-height:1.5">
+      Your password keeps other <b>people</b> out of your log on a shared phone. It is not encryption,
+      and it does not protect the log from anyone who has real access to the device itself.</div>`;
   }
   h+=`</div>
     <div class="jm" style="text-align:center;margin-top:16px;line-height:1.5">
@@ -2449,6 +2776,7 @@ addsess:()=>{const p=curP(),day=todayLogs();
     .concat(D.mine.map(m=>[m.id,m.n]))
     .concat(XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n]))
     .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']))
+    .concat(SBXORDER.map(k=>['sbx_'+k,SBX[k].n+' Complex']))
     .concat(CALORDER.map(k=>['cal_'+k,CAL[k].n]));
   return `<div class="mid">Another session today</div>
   <div class="jm" style="margin:6px 0 13px">Two-a-days are the point of this — a lift in the morning and conditioning or a complex later. Each session keeps its own sets and they all count toward your volume. Nothing you have already logged today is touched.</div>
@@ -2523,6 +2851,7 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
     .concat(D.mine.map(m=>[m.id,m.n]))
     .concat(XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n]))
     .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']))
+    .concat(SBXORDER.map(k=>['sbx_'+k,SBX[k].n+' Complex']))
     .concat(CALORDER.map(k=>['cal_'+k,CAL[k].n]));
   const opts=exOptions();   // Kettlebell · Rings · Calisthenics · Gym · Cardio
   return `<div class="mid">Log a workout you've already done</div>
@@ -2577,6 +2906,58 @@ kbx:k=>{const c=KBX[k];if(!c)return '<div class="mid">Unknown complex</div>';
   <button class="btn p" style="margin-top:6px" onclick="startKbx('${escId(k)}')">Start it now</button>
   ${c.bench?`<button class="btn gh" style="margin-top:7px" onclick="close_();open_('bench','${escId(c.bench)}')">Log a score</button>`:''}
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
+
+/* ---- sandbag complexes (Beta 2.2) ----
+   Same shape as the kbx sheet, three differences: the kit warning is about the
+   bag settling rather than the bell coming down, carries print their metres,
+   and every one of these IS a benchmark so the scored pill is unconditional. */
+sbx:k=>{const c=SBX[k];if(!c)return '<div class="mid">Unknown complex</div>';
+  const s=sbxSession(k),amrap=c.mode==='amrap';
+  return `<div class="mid">${esc(c.n)} Complex</div>
+  <div class="row" style="gap:6px;margin:9px 0 12px;flex-wrap:wrap">
+    <span class="pill a">${amrap?c.mins+' min AMRAP':c.rounds+' rounds for time'}</span>
+    ${amrap?'':`<span class="pill">${c.rest}s between rounds</span>`}
+    <span class="pill">${esc(c.kit)}</span><span class="pill">~${s.mins} min</span>
+    <span class="pill g">Scored benchmark</span></div>
+  <div class="note">${esc(c.note)}</div>
+  <div class="sec">The sequence</div>
+  ${c.seq.map((x,i)=>`<div class="tst"><div style="flex:1">
+     <div style="font-weight:600;font-size:14px">${i+1}. ${esc(x[0])}</div>
+     <div class="jm">${(EX[x[0]]||{}).c?esc(String(EX[x[0]].c).split('.')[0])+'.':''}</div></div>
+     <span class="pill a">${x[2]==='m'?x[1]+'m':'×'+x[1]+(x[2]?' '+esc(x[2]):'')}</span></div>`).join('')}
+  <div class="warnbox" style="margin-top:12px">Lift the corner, not the middle. Hug it, do not hold it. If the bag settles wrong mid-rep, put it down and reset rather than fighting bad shape — the fill moves, and arguing with it is how backs go.</div>
+  <button class="btn p" style="margin-top:6px" onclick="startSbx('${escId(k)}')">Start it now</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_();open_('bench','${escId(c.bench)}')">Log a score</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
+
+/* ---- the daily protocol editor (Beta 2.2) ----
+   Three lists: what is on, what can be restored, and a field to add. Built-ins
+   are hidden not deleted, which is why the middle list exists at all — without
+   a visible restore path, "remove" on a built-in reads as destructive and
+   nobody touches it. */
+protoedit:()=>{
+  const on=journalItems(),off=journalOff();
+  let b=`<div class="mid">Your daily protocol</div>
+  <div class="note" style="margin:8px 0 4px">Add what you actually do. Switch off what you do not. Turning a built-in habit off only hides it from the tracker — every tick you have already logged against it is kept, and switching it back on restores the lot.</div>
+  <div class="sec">In your protocol · ${on.length}</div>`;
+  if(!on.length)b+=`<div class="jm" style="padding:8px 0">Nothing here yet.</div>`;
+  on.forEach(j=>{b+=`<div class="tst"><div style="flex:1">
+    <div style="font-weight:600;font-size:14px">${esc(j.t)}${j.custom?' <span class="pill" style="font-size:10px;padding:2px 7px">yours</span>':''}</div>
+    ${j.m?`<div class="jm">${esc(j.m)}</div>`:''}</div>
+    <button class="btn sm gh" onclick="${j.custom?`protoDrop('${escId(j.k)}')`:`protoHide('${escId(j.k)}')`}">${j.custom?'Delete':'Switch off'}</button></div>`});
+  if(off.length){
+    b+=`<div class="sec">Switched off · ${off.length}</div>`;
+    off.forEach(j=>{b+=`<div class="tst" style="opacity:.62"><div style="flex:1">
+      <div style="font-weight:600;font-size:14px">${esc(j.t)}</div>
+      ${j.m?`<div class="jm">${esc(j.m)}</div>`:''}</div>
+      <button class="btn sm gh" onclick="protoShow('${escId(j.k)}')">Restore</button></div>`});
+  }
+  b+=`<div class="sec">Add a habit</div>
+  <div><div class="tiny">Habit</div><input type="text" id="pa_t" maxlength="60" placeholder="e.g. Journal 5 minutes"></div>
+  <div style="margin-top:8px"><div class="tiny">Note · optional</div><input type="text" id="pa_m" maxlength="140" placeholder="Why it is on the list"></div>
+  <button class="btn p" style="margin-top:11px" onclick="protoAdd()">Add to protocol</button>
+  <button class="btn gh" style="margin-top:7px" onclick="close_()">Done</button>`;
+  return b;},
 
 /* ---- calisthenics workouts ---- */
 cal:k=>{const c=CAL[k];if(!c)return '<div class="mid">Unknown workout</div>';
@@ -2704,8 +3085,10 @@ gen:()=>{
   <div class="lbl" style="margin-top:12px">Quality</div>
   <div class="tabs" style="flex-wrap:wrap">${chip(GEN_QUALITY,'quality')}</div>
   <div class="lbl" style="margin-top:12px">Finish with (optional)</div>
-  <div class="tabs" style="flex-wrap:wrap">${KBXORDER.concat(CALORDER).map(k=>{
-    const nm=(KBX[k]&&KBX[k].n)||(CAL[k]&&CAL[k].n)||k;
+  <div class="tabs" style="flex-wrap:wrap">${KBXORDER
+    .concat(o.kit.indexOf('sandbag')>=0?SBXORDER:[])
+    .concat(CALORDER).map(k=>{
+    const nm=(KBX[k]&&KBX[k].n)||(SBX[k]&&SBX[k].n)||(CAL[k]&&CAL[k].n)||k;
     return `<button class="tab ${o.include.indexOf(k)>=0?'on':''}" onclick="genInc('${escId(k)}')">${esc(nm)}</button>`}).join('')}</div>
 
   <div class="sec">Your workout</div>
