@@ -43,7 +43,30 @@
    warning that the log lives on this phone only and must be backed up weekly,
    and both backup filenames (Backup all data .json, Export to Obsidian .md)
    now carry the signed-in profile's name ahead of the date. */
-const C = 'jhfp-beta-2.1';
+/* BETA 2.2 — five changes, all of them Juan's.
+   1. The gate's data warning is no longer a permanent amber block above
+      sign-in. It moved BELOW the About panel as an expandable "Data Usage
+      Note", collapsed by default, with the risk still stated in the closed
+      summary line so it warns without shouting.
+   2. FUEL CONSISTENCY. A new pinned panel on Fuel: current and best streak of
+      days landing within 10% of the calorie goal, 7-day and 30-day over/under
+      for calories, protein and fat, and a 4- and 12-week bodyweight projection
+      at 7,700 kcal/kg with a lean/fat split. Days with no food logged are
+      excluded everywhere rather than counted as zero.
+   3. COMPLEXES RENAMED TO THE NOTE. Five entries carried names off Pat's site
+      that were, movement for movement, complexes Juan had already named
+      himself — PD Special/Joshua, Gimli/Daniel, Big Mick/Gideon, Flow/Orca,
+      Full Body EMOM/Tiger — so they are folded into their note counterparts
+      rather than duplicated. Hercules is 7/6/5 as written, not 5/6/7; Zeus
+      seeds single-arm deadlifts rather than single-leg RDLs. Only the eight
+      complexes the note marks "Benchmark =" with a PB line are now scorable.
+   4. THE DAILY PROTOCOL IS EDITABLE. Add your own habits, switch built-ins off
+      (hidden, never deleted — the ticks survive and restore), restore them.
+   5. SANDBAG WAREHOUSE. The five named bag complexes — Atlas, Milo, Goliath,
+      Spartan, Viking — as optional workouts in their own section beside the KB
+      complexes, all five scored, plus the full sandbag movement library from
+      the note. */
+const C = 'jhfp-beta-2.2';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
