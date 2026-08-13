@@ -481,6 +481,17 @@ const DEF={
      migrate() so that a straight copy of DEF is a COMPLETE record — anything
      that builds a record without going through load() would otherwise get a
      half-shaped ui object. */
+  /* Beta 2.2 — the daily protocol is now editable.
+     `off` = keys of BUILT-IN JOURNAL items that have been switched off. They
+     are HIDDEN, never deleted: the historical ticks in `journal` stay exactly
+     where they are, so turning "Cold plunge" off in August does not rewrite
+     what July looked like, and turning it back on restores the whole record.
+     `add` = extra habits, each {k,t,m} with a `k` prefixed `x_` so a custom
+     habit can never collide with a built-in key now or after a future release
+     adds one. Deleting a custom habit DOES drop it from the list — but its
+     ticks survive in `journal` under the same key, which is what makes an
+     accidental delete recoverable by re-adding the same name. */
+  protocol:{off:[], add:[]},
   custom:{}, mine:[], photos:[], ui:{sidx:0, sec:{}}
 };
 /* Set when the stored record exists but will not parse. While it is true, save()
@@ -566,6 +577,14 @@ function migrate(d){
   /* which collapsible sections are open. Beta 2.0; absent on older records. */
   d.ui.sec=d.ui.sec||{};
   d.rest=d.rest||{};                 // queue-mode off-day record, Beta 2.0
+  /* editable daily protocol, Beta 2.2; absent on every record before it.
+     Shape-checked rather than merely presence-checked, because a hand-edited
+     backup can easily arrive with protocol:{} or with off as a string, and
+     journalItems() calls .indexOf and .forEach on these without asking. */
+  d.protocol=d.protocol&&typeof d.protocol==='object'?d.protocol:{};
+  if(!Array.isArray(d.protocol.off))d.protocol.off=[];
+  if(!Array.isArray(d.protocol.add))d.protocol.add=[];
+  d.protocol.add=d.protocol.add.filter(x=>x&&typeof x==='object'&&x.k&&x.t);
   /* migrate() can be handed a record with no settings at all — a hand-written
      backup, or a test fixture. Never assume a sub-object exists here. */
   d.settings=d.settings||{};
