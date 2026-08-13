@@ -425,6 +425,7 @@ function genTrim(sess){
 function genFinisher(inc){
   const names=inc.map(k=>{
     if(KBX[k])return KBX[k].n+' complex';
+    if(SBX[k])return SBX[k].n+' complex';
     if(CAL[k])return CAL[k].n;
     return null}).filter(Boolean);   // never echo an unknown key at the user
   return names.length?'Finish with: '+names.join(' · '):'';
@@ -959,48 +960,52 @@ Object.assign(EX,{
    finisher on any session, or as a standalone second workout for the day.
    They are deliberately short and unbroken — the bell does not come down
    inside a round. Rest is between rounds only. */
+/* BETA 2.2 — NAMES COME FROM THE NOTE, NOT FROM ANYONE'S WEBSITE.
+   Five entries here used to carry names off Pat's site — PD Special, Gimli,
+   Big Mick, Flow and Full Body EMOM. Each of them is, movement for movement,
+   a complex Juan had already named himself in [[Hard to Kill - Training]]:
+   PD Special = Joshua · Gimli = Daniel · Big Mick = Gideon (at 3/4/5 rather
+   than 7/6/5) · Flow = Orca · Full Body EMOM = Tiger. Because the note-named
+   versions were ALSO already in this table (added in run 4), renaming them
+   would have produced two Joshuas, two Daniels and so on. They are therefore
+   folded into their note counterparts rather than duplicated, and the rep
+   schemes below are the NOTE's, not the website's.
+
+   `alt` records the retired name so anything logged against the old key can
+   still be recognised, and so nobody re-adds them in a year's time thinking
+   they are missing. Snatch & Squat EMOM had no counterpart in the note at all
+   and is retired outright; the same session is a two-movement EMOM anyone can
+   build in seconds from the workout generator.
+
+   BENCHMARKS: only a complex the note marks with an explicit "Benchmark =" and
+   a "PB" line is scorable. That is David, Gideon, Samson, Zeus, Achilles,
+   Hercules, Poseidon and Thor for the bells, and all five sandbag complexes.
+   Everything else is a workout you run, not a number you chase. Do not put a
+   `bench` key back on the others — deriveBenchmarks() will happily generate a
+   PB slot for anything carrying one, which is exactly how the list drifted. */
 const KBX={
-pd:{bench:'kbx_pd',n:'PD Special',rounds:5,rest:75,kit:'1 bell',
-  seq:[['KB bent-over row',5],['KB two-arm swing',5],['KB thruster',5]],
-  note:'The cleanest one to start with. Row, swing, thruster — unbroken, then set it down.'},
-gimli:{bench:'kbx_gimli',n:'Gimli',rounds:5,rest:75,kit:'1 bell',
-  seq:[['KB two-arm swing',5],['KB high pull',4],['KB goblet squat',3]],
-  note:'Descending ladder. Play with the rep numbers as you get fitter — 5/4/3 is the floor, not the rule.'},
 zeus:{n:'Zeus',rounds:7,rest:90,kit:'1 bell · all one side, then switch',bench:'zeus',
-  seq:[['KB single-leg RDL',7],['KB clean',6],['KB military press',5]],
+  seq:[['KB single-arm deadlift',7],['KB clean',6],['KB military press',5]],
   note:'7 single-arm deadlifts, 6 cleans, 5 presses. Finish every rep on one arm before you switch. Optional extras between rounds: dips, pull-ups, lunges. Benchmark is 7 rounds for time.'},
 achilles:{n:'Achilles',rounds:7,rest:90,kit:'1 bell · same side throughout',bench:'achilles',
   seq:[['KB single-arm swing',5],['KB snatch',5],['KB overhead lunge',5],['Pull-up',10],['Hanging leg raise',10]],
   note:'5 swings, 5 snatches, 5 overhead lunges, then 10 pull-ups and 10 leg raises. All the bell work same side, rest, then switch. Benchmark is 7 rounds for time.'},
-athena:{bench:'kbx_athena',n:'Athena',rounds:5,rest:75,kit:'1 bell',
-  seq:[['KB two-arm swing',7],['KB high pull',7],['KB clean',4]],
-  note:'Squat cleans are 4 per side, offset. Reversible — run it backwards once it feels easy.'},
+athena:{n:'Athena',rounds:5,rest:75,kit:'1 bell',
+  seq:[['KB two-arm swing',7],['KB deadlift high pull',7],['KB clean',4]],
+  note:'7 swings, 7 deadlift high pulls, 4 offset squat cleans per side. Reversible — run it backwards once it feels easy. No benchmark in the note; run it, do not score it.'},
 hercules:{n:'Hercules',rounds:7,rest:60,kit:'1 bell · switch sides each round',bench:'hercules',
-  seq:[['KB two-arm swing',5],['KB clean',6],['KB push press',7]],
-  note:'5 swings, 6 cleans, 7 push presses. Seven rounds, switch sides each round. Reversible. Benchmark is 7 rounds for time.'},
-mick:{bench:'kbx_mick',n:'Big Mick',rounds:7,rest:60,kit:'1 bell · single arm · switch each round',
-  seq:[['KB bent-over row',3],['KB single-arm swing',4],['KB snatch',5]],
-  note:'3/4/5 or 5/6/7. Heavier bell + more rest = strength. Lighter bell + less rest = engine. Pick one, do not split the difference.'},
-flow:{bench:'kbx_flow',n:'Flow',rounds:5,rest:75,kit:'1 bell · continuous',
-  seq:[['KB two-arm swing',5],['KB snatch',3],['KB thruster',3],['KB windmill',2]],
-  note:'One movement melts into the next — swing to snatch to thruster to windmill. Quality over speed; this one is a skill session disguised as conditioning.'},
-leopard:{bench:'kbx_leopard',n:'Leopard Flow',rounds:5,rest:75,kit:'2 bells if you have them',
+  seq:[['KB two-arm swing',7],['KB clean',6],['KB push press',5]],
+  note:'7 swings, 6 cleans, 5 push presses. Seven rounds, switch sides each round. Reversible. Benchmark is 7 rounds for time.'},
+leopard:{n:'Leopard Flow',rounds:5,rest:75,kit:'2 bells if you have them',
   seq:[['KB two-arm swing',5],['KB clean',5],['KB front rack squat',5],['KB thruster',5]],
   note:'Straight into the next movement, rest ONLY after the thrusters. With one bell, do both sides before resting.'},
-orca:{bench:'kbx_orca',n:'Orca Flow',rounds:5,rest:75,kit:'2 bells if you have them',
+orca:{n:'Orca Flow',alt:'Flow',rounds:5,rest:75,kit:'2 bells if you have them',
   seq:[['KB two-arm swing',5],['KB snatch',5],['KB thruster',5],['KB windmill',5]],
   note:'Straight into the next movement, rest ONLY after the thrusters. With one bell, do both sides before resting.'},
-emom1:{bench:'kbx_emom1',n:'Full Body EMOM',rounds:20,rest:0,kit:'1 bell · 20 min EMOM',
-  seq:[['KB snatch',7],['Push-up',25],['KB thruster',7],['KB renegade row',10]],
-  note:'20 minute EMOM. Single-arm snatches and thrusters. Whatever is left of the minute is your rest — that is the whole game.'},
-emom2:{bench:'kbx_emom2',n:'Snatch & Squat EMOM',rounds:20,rest:0,kit:'1 bell · 20 min EMOM',
-  seq:[['KB snatch',7],['KB goblet squat',10]],
-  note:'The minimalist EMOM. Swap the pairing when it gets stale: snatches + presses, swings + push-ups, high pulls + pull-ups, cleans + lunges.'},
-rogan:{bench:'kbx_rogan',n:'Rogan',rounds:3,rest:75,kit:'1 bell · 10 reps each',
+rogan:{n:'Rogan',rounds:3,rest:75,kit:'1 bell · 10 reps each',
   seq:[['KB single-arm swing',10],['KB clean & press',10],['KB windmill',10],['KB renegade row',10]],
   note:'Warm up first: 25 push-ups and 50 squats. Then 3 rounds of 10 on each movement.'}};
-const KBXORDER=['pd','gimli','zeus','achilles','athena','hercules','mick','flow',
-'leopard','orca','emom1','emom2','rogan'];
+const KBXORDER=['zeus','achilles','athena','hercules','leopard','orca','rogan'];
 /* Turn a complex into a normal session object the player can run. */
 function kbxSession(k){const c=KBX[k];if(!c)return null;
   return {id:'kbx_'+k,n:c.n+' Complex',w:'home',mins:Math.max(12,Math.round(c.rounds*(c.seq.length*22+c.rest)/60)),
@@ -1231,7 +1236,7 @@ Object.assign(EX,{
 BENCH.push(
 {k:'zeus',n:'Zeus Complex',u:'time',pb:'',d:'7 single-arm deadlifts · 6 cleans · 5 presses. All one side, then switch. 7 rounds for time.'},
 {k:'achilles',n:'Achilles Complex',u:'time',pb:'',d:'5 single-arm swings · 5 snatches · 5 overhead lunges · 10 pull-ups · 10 leg raises. 7 rounds for time.'},
-{k:'hercules',n:'Hercules Complex',u:'time',pb:'',d:'5 swings · 6 cleans · 7 push presses. Switch sides each round. 7 rounds for time.'});
+{k:'hercules',n:'Hercules Complex',u:'time',pb:'',d:'7 swings · 6 cleans · 5 push presses. Switch sides each round. 7 rounds for time.'});
 
 /* ---- FUEL ---- */
 FOOD.push(
@@ -1263,6 +1268,19 @@ function deriveBenchmarks(){
     BENCH.push({k:c.bench,n:c.n+' complex',u:emom?'rounds':'time',pb:'',
       d:emom?(c.rounds+' minute EMOM. Score is rounds completed unbroken.')
             :(c.rounds+' rounds for time. '+c.seq.map(x=>x[1]+' '+x[0].replace(/^KB /,'')).join(' · ')+'.')});
+    have[c.bench]=1;
+  });
+  /* Sandbag complexes. Unlike the KB path this does NOT sniff the kit string
+     for the word EMOM — SBX entries declare `mode` outright ('time' or
+     'amrap'), which is the thing the note actually specifies. */
+  SBXORDER.forEach(k=>{
+    const c=SBX[k];if(!c||!c.bench||have[c.bench])return;
+    const amrap=c.mode==='amrap';
+    BENCH.push({k:c.bench,n:c.n+' complex',u:amrap?'rounds':'time',pb:'',
+      d:amrap?('AMRAP in '+(c.mins||20)+' minutes. Score is rounds completed. '
+               +c.seq.map(x=>(x[2]==='m'?x[1]+'m ':x[1]+' ')+x[0].replace(/^Sandbag /,'')).join(' · ')+'.')
+            :(c.rounds+' rounds for time. '
+               +c.seq.map(x=>(x[2]==='m'?x[1]+'m ':x[1]+' ')+x[0].replace(/^Sandbag /,'')).join(' · ')+'.')});
     have[c.bench]=1;
   });
   CALORDER.forEach(k=>{
@@ -1306,6 +1324,74 @@ Object.assign(EX,{
 'Sandbag walking lunge':{g:'cal',p:'legs',m:['quads','glutes','hams','core'],c:'Bag on the shoulders or bear-hugged. Long steps, knee kissing the floor, no rushing.'}
 });
 
+/* ================= BETA 2.2 · SANDBAG WAREHOUSE =================
+   Juan acquired home-made 40kg and 80kg bags on 11 Aug 2026 and wrote a full
+   Sandbag Warehouse section into [[Hard to Kill - Training]] — instruction
+   manual, advantages, a library grouped BY MOVEMENT PATTERN rather than by
+   muscle (a bag is compound by nature; it does not split cleanly), and five
+   named complexes. The library below is that section, one entry per movement.
+
+   Every one is group `cal` and every one starts with the word "Sandbag",
+   which is what genAllowed's `/^sandbag/i` gate keys off — so a user with no
+   bag never gets handed one by the generator. Do not rename them to drop the
+   prefix; the gate is the prefix.
+
+   Note's own framing, kept because it is the coaching: lift the corner not the
+   middle, hug it don't hold it, explode to the shoulder, keep it close, reset
+   between reps if it settles wrong, progress by fill not by bag. Lift, carry,
+   throw. Simple. */
+Object.assign(EX,{
+/* --- lifts --- */
+'Sandbag ground-to-shoulder':{g:'cal',p:'pull',c1:1,m:['back','glutes','core','biceps'],c:'Floor to shoulder in one intent. Grip the corner, not the middle, and explode — hesitate and it stalls at the hips. Alternate shoulders.'},
+'Sandbag lap lift':{g:'cal',p:'legs',m:['back','glutes','hams','core'],c:'Deadlift it and catch it on the thighs, sitting back. The staging post between the floor and everything else — learn this before shouldering.'},
+'Sandbag zercher lift':{g:'cal',p:'legs',m:['back','glutes','core','biceps'],c:'From the lap into the crooks of the elbows and stand. The upper back and the brace give out long before the legs do.'},
+'Sandbag bear hug deadlift':{g:'cal',p:'legs',m:['glutes','hams','back','core'],c:'Arms wrapped, bag against the shins, hinge and stand. Squeeze the bag hard the whole way — a loose hug turns into a round back.'},
+'Sandbag deadlift':{g:'cal',p:'legs',m:['glutes','hams','back','forearms'],c:'Straps or handles, conventional hinge. The closest a bag gets to a barbell, which makes it the one to load heaviest.'},
+'Sandbag clean':{g:'cal',p:'pull',c1:1,m:['back','glutes','delts','core'],c:'Floor to the front rack in one pull. Elbows whip through fast — a slow turnover puts the whole bag on your wrists.'},
+'Sandbag high pull':{g:'cal',p:'pull',m:['traps','back','glutes','delts'],c:'Hinge and drive, elbows leading, bag to chest height. Hips do the work; the arms only steer.'},
+'Sandbag snatch':{g:'cal',p:'pull',c1:1,m:['delts','back','glutes','core'],c:'Light bag only. Floor to overhead in one movement — this is the most technical thing a bag can do, so earn it.'},
+'Sandbag shoulder-to-shoulder switch':{g:'cal',p:'push',m:['delts','core','back','traps'],c:'Roll it across the front of the neck from one shoulder to the other without dropping it. Cheap, brutal shoulder and neck work.'},
+'Sandbag seiza get-up':{g:'cal',p:'core',m:['core','quads','glutes','delts'],c:'From kneeling in seiza, stand with the bag loaded. No hands, no momentum — the deepest hip and knee position in the library.'},
+/* --- carries --- */
+'Sandbag shoulder carry':{g:'cal',p:'core',c1:1,m:['core','quads','back','delts'],c:'Bag on one shoulder, ribs down, do not lean away from it. Swap shoulders each round. Distance or time, never reps.'},
+'Sandbag zercher carry':{g:'cal',p:'core',c1:1,m:['core','back','biceps','quads'],c:'Crooks of the elbows, chest tall. The grip that fails first is the one in the elbows, which is the whole point.'},
+'Sandbag front hug carry':{g:'cal',p:'core',c1:1,m:['core','back','forearms','quads'],c:'High on the chest, elbows tucked under. Breathing is the limiter — take short breaths and keep walking.'},
+'Sandbag overhead carry':{g:'cal',p:'push',c1:1,m:['delts','core','traps','triceps'],c:'Locked out overhead, ribs down, walk. Light bag. The best shoulder-stability drill here and the one that humbles fastest.'},
+'Two-bag farmer carry':{g:'cal',p:'core',c1:1,m:['forearms','traps','core','quads'],c:'One bag a side, straps or handles. Grip goes, then posture, then pride. Walk until one of them does.'},
+/* --- throws --- */
+'Sandbag backward overhead throw':{g:'cal',p:'legs',c1:1,m:['glutes','hams','back','delts'],c:'Squat low, then extend violently and throw it back over your head. Pure power. Needs open space and nothing behind you.'},
+'Sandbag rotational throw':{g:'cal',p:'core',c1:1,m:['core','glutes','back','delts'],c:'Shovel it sideways, hips leading, arms passive. The only genuinely rotational power movement in the library — do both directions.'},
+'Sandbag slam':{g:'cal',p:'core',c1:1,m:['core','back','delts','glutes'],c:'Overhead, then drive it into the floor with everything. No eccentric to recover from, so it can be run hard and often.'},
+'Sandbag chest throw':{g:'cal',p:'push',c1:1,m:['chest','delts','triceps','core'],c:'From the chest, push-press it away as far as you can. Explosive pressing without the joint cost of a heavy press.'},
+/* --- squats & lunges --- */
+'Sandbag shoulder squat':{g:'cal',p:'legs',m:['quads','glutes','core','back'],c:'Bag on one shoulder. The offset load makes the core fight sideways the whole set — do equal reps each side.'},
+'Sandbag goblet-hug squat':{g:'cal',p:'legs',m:['quads','glutes','core'],c:'Bag hugged high and close, elbows inside the knees at the bottom. The most joint-friendly squat here.'},
+'Sandbag bear hug lunge':{g:'cal',p:'legs',m:['quads','glutes','hams','core'],c:'Bear hug, long step, back knee to the floor. It drags you forward every rep, which is the core work.'},
+'Sandbag shoulder lunge':{g:'cal',p:'legs',m:['quads','glutes','core','hams'],c:'Bag on one shoulder, lunge. Offset and awkward — alternate shoulders, not just legs.'},
+'Sandbag zercher lunge':{g:'cal',p:'legs',m:['quads','glutes','core','back'],c:'Crooks of the elbows, upright torso, controlled descent. The upper back gives out first again.'},
+'Sandbag step-up':{g:'cal',p:'legs',m:['quads','glutes','hams','core'],c:'Bag shouldered or hugged, drive through the whole foot. Height decides difficulty far more than the bag does.'},
+/* --- presses --- */
+'Sandbag push press':{g:'cal',p:'push',m:['delts','triceps','quads','core'],c:'Small dip, drive with the legs, punch it overhead. The dip is a leg drive, not a squat.'},
+'Sandbag bradford press':{g:'cal',p:'push',m:['delts','triceps','traps'],c:'Press from the front, over to behind the neck, back again — one rep. Light bag, and only if the shoulders are happy.'},
+'Sandbag overhead hold':{g:'cal',p:'push',m:['delts','core','triceps','traps'],c:"Waiter's hold, locked out, ribs down. Time under tension only. Stop when the ribs flare, not when the arms shake."},
+/* --- rows & back --- */
+'Sandbag plank row':{g:'cal',p:'pull',m:['back','core','biceps','forearms'],c:'Plank on the bag straps, row one side while the hips stay square. The anti-rotation is the exercise; the row is incidental.'},
+'Sandbag pullover':{g:'cal',p:'pull',m:['back','chest','core','triceps'],c:'Flat on the floor, bag hugged, arms travelling back over the head. Ribs stay down — this is a lat stretch, not a lumbar one.'},
+/* --- core & rotation --- */
+'Sandbag rotational lunge & lift':{g:'cal',p:'core',m:['core','glutes','quads','delts'],c:'Step back into a lunge, then rotate and lift the bag across the body. Loaded movement in three planes at once.'},
+'Sandbag russian twist':{g:'cal',p:'core',m:['core','forearms'],c:'Seated, feet up if you can, bag travelling side to side. Turn the ribcage, not just the arms.'},
+'Sandbag woodchop':{g:'cal',p:'core',m:['core','glutes','delts','back'],c:'Low on one side to high on the other, diagonally. Hips lead, arms follow, no twisting through the lower back.'},
+'Sandbag bear hug sit-up':{g:'cal',p:'core',m:['core','chest'],c:'Sit-up hugging the bag to the chest. Simple, honest, and heavier than it looks the moment the bag settles.'},
+/* --- mobility & flow --- */
+'Sandbag pass-around':{g:'cal',p:'core',m:['core','delts','forearms'],c:'Pass the bag around the waist, both directions. A warm-up that also teaches you to keep it close.'},
+'Sandbag hug-and-rotate flow':{g:'cal',p:'core',m:['core','back','delts'],c:'Bear hug, rotate side to side under control. Thoracic mobility with a load asking politely.'},
+'Sandbag halo':{g:'cal',p:'push',m:['delts','core','traps'],c:'Circle the bag around the head, tight to the skull, both directions. Opens the shoulders before anything overhead.'},
+/* --- and the one kettlebell movement Zeus actually calls for. The complex used
+   to be seeded with a single-leg RDL, which is not what the note prescribes:
+   Zeus is 7 single-arm DEADLIFTS, 6 cleans, 5 presses, all one side. --- */
+'KB single-arm deadlift':{g:'kb',p:'legs',m:['glutes','hams','back','forearms'],c:'Bell between the feet, hinge, one hand. Hips square and shoulders level — the load wants to twist you and the anti-rotation is half the value.'}
+});
+
 /* ---- THE MISSING COMPLEXES ----
    Seventeen complexes and flows that were in the Hard to Kill note but had
    never made it into the app — which was the single biggest gap the Beta 2.0
@@ -1317,19 +1403,19 @@ Object.assign(KBX,{
 david:{bench:'kbx_david',n:'David',rounds:5,rest:90,kit:'1 bell',
   seq:[['KB two-arm swing',7],['KB clean',6],['KB push press',5],['KB windmill',4],['KB halo',3]],
   note:'7 swings, 6 cleans, 5 push presses, 4 windmills, 3 halos. Descending ladder — the windmills and halos at the end are the recovery, not a rest. Benchmark is 5 rounds for time.'},
-gideon:{bench:'kbx_gideon',n:'Gideon',rounds:7,rest:75,kit:'1 bell',
+gideon:{bench:'kbx_gideon',n:'Gideon',alt:'Big Mick',rounds:7,rest:75,kit:'1 bell',
   seq:[['KB bent-over row',7],['KB two-arm swing',6],['KB snatch',5]],
-  note:'7 rows, 6 swings, 5 snatches. Pull-dominant — this is the one to run when the week has been press-heavy. Benchmark is 7 rounds for time.'},
+  note:'7 rows, 6 swings, 5 snatches. Pull-dominant — this is the one to run when the week has been press-heavy. Scale it 3/4/5 while you are learning it. Heavier bell and more rest trains strength; lighter bell and less rest trains the engine — pick one, do not split the difference. Benchmark is 7 rounds for time.'},
 samson:{bench:'kbx_samson',n:'Samson',rounds:8,rest:60,kit:'1 bell · 20 min AMRAP',
   seq:[['KB bent-over row',7],['KB gunslinger',6],['KB clean & press',5]],
   note:'7 rows, 6 gunslingers, 5 clean & press. Benchmark is AMRAP in 20 minutes — score is rounds completed.'},
-joshua:{bench:'kbx_joshua',n:'Joshua',rounds:5,rest:75,kit:'1 bell',
+joshua:{n:'Joshua',alt:'PD Special',rounds:5,rest:75,kit:'1 bell',
   seq:[['KB bent-over row',5],['KB two-arm swing',5],['KB thruster',5]],
   note:'5 rows, 5 swings, 5 thrusters. The simplest complex in the book and a good first one — three movements, one number, no thinking.'},
-daniel:{bench:'kbx_daniel',n:'Daniel',rounds:7,rest:75,kit:'2 bells if you have them',
+daniel:{n:'Daniel',alt:'Gimli',rounds:7,rest:75,kit:'2 bells if you have them',
   seq:[['KB two-arm swing',5],['KB deadlift high pull',4],['KB goblet squat',3]],
   note:'5 swings, 4 deadlift high pulls, 3 goblet squats. Two-handed rather than single-arm, 7 rounds.'},
-moses:{bench:'kbx_moses',n:'Moses',rounds:5,rest:90,kit:'1 bell · alternating',
+moses:{n:'Moses',rounds:5,rest:90,kit:'1 bell · alternating',
   seq:[['KB Turkish get-up',3],['KB clean & press',5],['KB bent-over row',7],['KB Cossack squat',9]],
   note:'3 get-ups, 5 clean & press, 7 alternating rows, 9 alternating Cossack squats. An ascending ladder that starts with the hardest movement — get the get-ups done while you are fresh.'},
 poseidon:{bench:'kbx_poseidon',n:'Poseidon',rounds:8,rest:60,kit:'1 bell · 20 min AMRAP',
@@ -1338,36 +1424,89 @@ poseidon:{bench:'kbx_poseidon',n:'Poseidon',rounds:8,rest:60,kit:'1 bell · 20 m
 thor:{bench:'kbx_thor',n:'Thor',rounds:10,rest:0,kit:'1 bell · 30 min AMRAP',
   seq:[['KB two-arm swing',5],['KB snatch',5],['KB thruster',5]],
   note:'One swing, one snatch, one thruster is a rep. Five reps is a round. Benchmark is a 30-minute AMRAP — score is rounds. Pace it; this one punishes a fast start.'},
-polarbear:{bench:'kbx_polarbear',n:'Polar Bear Flow',rounds:7,rest:90,kit:'2 bells if you have them',
+polarbear:{n:'Polar Bear Flow',rounds:7,rest:90,kit:'2 bells if you have them',
   seq:[['KB clean',5],['KB push press',5],['KB thruster',5],['KB two-arm swing',7],['KB high pull',6],['KB snatch',5]],
   note:'Two complexes back to back: 5 deadlift-cleans, 5 push presses, 5 thrusters both sides, then straight into 7 swings, 6 high pulls, 5 snatches. Rest, repeat for 7 rounds. The longest flow in the library.'},
-grizzly:{bench:'kbx_grizzly',n:'Grizzly Flow',rounds:7,rest:60,kit:'1 bell',
+grizzly:{n:'Grizzly Flow',rounds:7,rest:60,kit:'1 bell',
   seq:[['KB two-arm swing',5],['KB snatch',5],['KB thruster',5]],
   note:'Swing, snatch, thruster — one of each is a rep, five reps a round. Complement it with push-ups, dips, pull-ups, rows, lunges or windmills between rounds. 7 rounds for time, or run it as a 20-30 minute EMOM or AMRAP.'},
-silverback:{bench:'kbx_silverback',n:'Silverback Gorilla Flow',rounds:6,rest:90,kit:'2 bells',
+silverback:{n:'Silverback Gorilla Flow',rounds:6,rest:90,kit:'2 bells',
   seq:[['KB gorilla row',5],['KB clean & press',5],['KB thruster',5],['Push-up',5]],
   note:'Double-bell flow. Five reps of each without putting the bells down, then rest. 5-7 rounds. The push-ups are done with the hands on the bell handles.'},
-jaguar:{bench:'kbx_jaguar',n:'Jaguar',rounds:20,rest:15,kit:'1 bell · 40 min, three parts',
+jaguar:{n:'Jaguar',rounds:20,rest:15,kit:'1 bell · 40 min, three parts',
   seq:[['KB dead-stop swing',10],['KB American swing',10],['KB clean',5],['KB thruster',5]],
   note:'Three parts. 1: 10 min AMRAP warm-up — 5 dead-stop swings, 5 into American swings, 5 single-arm cleans a side, 5 clean-to-squats, 5 clean-squat-presses. 2: 20 min EMOM with 15s rest — 10 dead-stop swings, 10 into American swings, 5 clean-squat-presses a side. 3: 10 min AMRAP — 15 gorilla swings, 25 push-ups, 5 snatches a side, 10 rack reverse lunges a side.'},
-panther:{bench:'kbx_panther',n:'Panther',rounds:5,rest:90,kit:'1 bell + pull-up bar',
+panther:{n:'Panther',rounds:5,rest:90,kit:'1 bell + pull-up bar',
   seq:[['KB clean & press',5],['Pull-up',5],['Ring dip',5],['KB goblet squat',10],['KB overhead lunge',5]],
   note:'Clean & press, pull-ups, dips, goblet squats, overhead lunges. The most complete single complex here — pushes, pulls and legs in one round.'},
-tiger:{bench:'kbx_tiger',n:'Tiger',rounds:20,rest:0,kit:'1 bell · 20-30 min full body EMOM',
+tiger:{n:'Tiger',alt:'Full Body EMOM',rounds:20,rest:0,kit:'1 bell · 20-30 min full body EMOM',
   seq:[['KB snatch',7],['Push-up',25],['KB thruster',7],['KB renegade row',10]],
   note:'20 or 30 minute full-body EMOM. 7 single-arm snatches, 25 push-ups, 7 single-arm thrusters, 10 renegade rows. Whatever is left of the minute is the rest.'},
-crocodile:{bench:'kbx_crocodile',n:'Crocodile',rounds:5,rest:75,kit:'1 bell',
+crocodile:{n:'Crocodile',rounds:5,rest:75,kit:'1 bell',
   seq:[['KB two-arm swing',10],['KB half-kneeling press',10],['KB bent-over row',10],['KB snatch',10]],
   note:'Straight tens: swings, half-kneeling presses, staggered-stance rows, snatches. Low skill, high volume — a good one when you are tired but want work done.'},
-cougar:{bench:'kbx_cougar',n:'Cougar',rounds:4,rest:90,kit:'1 bell · straight sets',
+cougar:{n:'Cougar',rounds:4,rest:90,kit:'1 bell · straight sets',
   seq:[['KB halo squat',8],['KB floor press',10],['KB goblet Bulgarian split squat',8],['KB clean & press',5],['KB renegade row',6]],
   note:'Not a complex — straight sets. 4×8 halo squats, 4×10 floor press, 4×8 split squats, 4×5 half-kneeling clean & press, 4×6 plank rows. The closest thing here to a normal gym session.'},
-eagle:{bench:'kbx_eagle',n:'Eagle Soar',rounds:5,rest:75,kit:'1 bell',
+eagle:{n:'Eagle Soar',rounds:5,rest:75,kit:'1 bell',
   seq:[['KB two-arm swing',7],['KB snatch',5],['KB overhead lunge',5],['KB half-kneeling press',5]],
   note:'Swing, snatch, overhead lunge, half-kneeling rotating press. Everything finishes overhead — this is a shoulder-stability session wearing a conditioning costume.'}
 });
-KBXORDER.push('david','gideon','samson','joshua','daniel','moses','poseidon','thor',
-  'polarbear','grizzly','silverback','jaguar','panther','tiger','crocodile','cougar','eagle');
+/* Rebuilt in the note's own running order rather than in the order the entries
+   happened to be added across releases: the named complexes first, then the
+   flows, then the longer named workouts, with Rogan at the front where the note
+   puts it. KBXORDER is spliced rather than reassigned because it is a const. */
+KBXORDER.splice(0,KBXORDER.length,
+  'rogan','david','gideon','samson','joshua','daniel','moses',
+  'zeus','achilles','athena','hercules','poseidon','thor',
+  'polarbear','grizzly','silverback','leopard','orca',
+  'jaguar','panther','tiger','crocodile','cougar','eagle');
+
+/* ================= SANDBAG COMPLEXES (Beta 2.2) =================
+   The five named complexes from the Sandbag Warehouse section of
+   [[Hard to Kill - Training]]: Atlas, Milo, Goliath, Spartan, Viking.
+
+   They live in their own table rather than inside KBX for two reasons. First,
+   they need a different kit gate — a bag, not a bell — and folding them into
+   KBX would have meant every "do you own a bell" check silently becoming a
+   "do you own a bell OR a bag" check. Second, they read differently: carries
+   are metres and throws are reps, so the sequence carries a `u` (unit) field
+   that KBX has no use for.
+
+   ALL FIVE ARE BENCHMARKS. Every one carries an explicit "Benchmark =" and a
+   "PB: tbc" line in the note, so unlike the bells — where only eight of the
+   twenty-four qualify — there is nothing to filter here. `mode` is 'time' for
+   rounds-for-time and 'amrap' for the two AMRAPs, which is what
+   deriveBenchmarks() reads to pick the scoring unit; it does not guess from
+   the kit string the way the KB path has to. */
+const SBX={
+atlas:{bench:'sbx_atlas',n:'Atlas',rounds:5,rest:120,mode:'time',kit:'1 bag · heavy',
+  seq:[['Sandbag ground-to-shoulder',5,'per side'],['Sandbag bear hug squat',5,''],['Sandbag shoulder carry',40,'m']],
+  note:'5 ground-to-shoulder per side, 5 bear hug squats, then 40m on the shoulder. Named for the man who carried the sky, and it feels about right. Benchmark is 5 rounds for time.'},
+milo:{bench:'sbx_milo',n:'Milo',rounds:7,rest:90,mode:'time',kit:'1 bag',
+  seq:[['Sandbag zercher lift',7,''],['Sandbag zercher squat',6,''],['Sandbag push press',5,'']],
+  note:'7 zercher lifts, 6 zercher squats, 5 push presses. Descending ladder, and the elbows are the limiter from round three on. Milo carried the same calf every day until it was a bull — progress by fill, not by bag. Benchmark is 7 rounds for time.'},
+goliath:{bench:'sbx_goliath',n:'Goliath',rounds:8,rest:60,mode:'amrap',mins:20,kit:'1 bag · heavy · 20 min AMRAP',
+  seq:[['Sandbag bear hug deadlift',10,''],['Sandbag bear hug carry',40,'m'],['Sandbag ground-to-shoulder',5,'per side']],
+  note:'10 bear hug deadlifts, 40m bear hug carry, 5 ground-to-shoulder per side. The heaviest bag you own — this one is a strength session that happens to be scored on the clock. Benchmark is AMRAP in 20 minutes; score is rounds completed.'},
+spartan:{bench:'sbx_spartan',n:'Spartan',rounds:7,rest:90,mode:'time',kit:'1 bag',
+  seq:[['Sandbag clean',5,''],['Sandbag push press',5,''],['Sandbag row',5,''],['Sandbag bear hug lunge',5,'per side']],
+  note:'5 cleans, 5 push presses, 5 bent-over rows, 5 bear hug lunges per side. Push, pull and legs in one round — the most complete complex in the sandbag library. Benchmark is 7 rounds for time.'},
+viking:{bench:'sbx_viking',n:'Viking',rounds:6,rest:60,mode:'amrap',mins:15,kit:'1 bag · open space · 15 min AMRAP',
+  seq:[['Sandbag shoulder carry',40,'m'],['Sandbag backward overhead throw',5,''],['Sandbag bear hug carry',40,'m']],
+  note:'40m shoulder carry, 5 backward overhead throws, 40m bear hug carry. Needs room and nothing breakable behind you. Carry, throw, carry — the whole sandbag argument in one round. Benchmark is AMRAP in 15 minutes; score is rounds completed.'}};
+const SBXORDER=['atlas','milo','goliath','spartan','viking'];
+
+/* Turn a sandbag complex into a session the player can run.
+   Mirrors kbxSession, with one difference that matters: a carry is prescribed
+   in METRES, so its rep string keeps the unit ('40m') instead of being coerced
+   to a bare number. The player treats the rep field as text already, so this
+   costs nothing and stops "40" reading as forty reps of walking. */
+function sbxSession(k){const c=SBX[k];if(!c)return null;
+  return {id:'sbx_'+k,n:c.n+' Complex',w:'home',sbx:1,note:c.note,
+    mins:c.mins||Math.max(12,Math.round(c.rounds*(c.seq.length*26+c.rest)/60)),
+    ex:c.seq.map(s=>({n:s[0],s:c.rounds,r:s[2]==='m'?(s[1]+'m'):(s[2]?s[1]+' '+s[2]:String(s[1])),rest:0,inx:1}))};
+}
 
 /* (benchmark derivation moved to the true end of this file — see the bottom) */
 
