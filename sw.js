@@ -66,7 +66,15 @@
       Spartan, Viking — as optional workouts in their own section beside the KB
       complexes, all five scored, plus the full sandbag movement library from
       the note. */
-const C = 'jhfp-beta-2.2';
+/* Version carries a .1 because sw.js reached the repo a few minutes AHEAD of
+   app.js, data.js and index.html during the 2.2 deploy — GitHub's web editor
+   would not accept a 132KB paste and the release had to finish over git. A
+   phone that happened to update in that window cached the NEW service worker
+   against the OLD app, and since sw.js would not have changed again when the
+   other three landed, it would have sat on that stale build indefinitely.
+   Bumping again closes the window. LESSON: sw.js goes LAST in any split
+   deploy, never first. */
+const C = 'jhfp-beta-2.2.1';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
 
 self.addEventListener('install', e => {
