@@ -86,14 +86,29 @@ const EX={
 /* --- GYM: core / conditioning --- */
 'Cable crunch':{g:'gym',p:'core',m:['core'],c:'Round the spine, hips still. Abs flex the spine — they do not just hold.'},
 'Hanging leg raise':{g:'cal',p:'core',m:['core','forearms'],c:'No swing. Posteriorly tilt the pelvis at the top.'},
-'Assault bike sprint':{g:'cardio',p:'cond',c1:1,m:['conditioning'],c:'All-out. Arms drive as hard as legs. Low interference with lifting — the research favours this over running.'},
-'Rower sprint':{g:'cardio',p:'cond',c1:1,m:['conditioning','back'],c:'Legs, hips, arms — in that order. Return in reverse.'},
-'Hill sprint':{g:'cardio',p:'cond',c1:1,m:['conditioning','quads','calves'],c:'Concentric-dominant, so far less muscle damage than flat sprinting. Walk down as the rest.'},
-'Zone 2 run':{g:'cardio',p:'cond',c1:1,m:['conditioning'],c:'Conversational pace. If you cannot talk, you are going too hard. This builds the engine.'},
-'Tempo run':{g:'cardio',p:'cond',c1:1,m:['conditioning'],c:'Comfortably hard — about 10k–half pace. Sustainable discomfort.'},
-'Interval run':{g:'cardio',p:'cond',c1:1,m:['conditioning'],c:'Around 5k pace. Your 5k PB is 24:55 — that is roughly 4:59/km.'},
-'Long run':{g:'cardio',p:'cond',c1:1,m:['conditioning'],c:'Slow. Time on feet is the goal, not pace.'},
-'Trail hike':{g:'cardio',p:'cond',c1:1,m:['conditioning','quads','calves'],c:'Loaded pack if you have one. Descents are the training stimulus most people skip.'},
+'Assault bike sprint':{g:'cardio',p:'cond',c1:1,ck:'interval',m:['conditioning'],c:'All-out. Arms drive as hard as legs. Low interference with lifting — the research favours this over running.'},
+'Rower sprint':{g:'cardio',p:'cond',c1:1,ck:'interval',m:['conditioning','back'],c:'Legs, hips, arms — in that order. Return in reverse.'},
+'Hill sprint':{g:'cardio',p:'cond',c1:1,ck:'interval',m:['conditioning','quads','calves'],c:'Concentric-dominant, so far less muscle damage than flat sprinting. Walk down as the rest.'},
+'Zone 2 run':{g:'cardio',p:'cond',c1:1,ck:'run',m:['conditioning'],c:'Conversational pace. If you cannot talk, you are going too hard. This builds the engine.'},
+'Tempo run':{g:'cardio',p:'cond',c1:1,ck:'run',m:['conditioning'],c:'Comfortably hard — about 10k–half pace. Sustainable discomfort.'},
+'Interval run':{g:'cardio',p:'cond',c1:1,ck:'run',m:['conditioning'],c:'Around 5k pace. Your 5k PB is 24:55 — that is roughly 4:59/km.'},
+'Long run':{g:'cardio',p:'cond',c1:1,ck:'run',m:['conditioning'],c:'Slow. Time on feet is the goal, not pace.'},
+'Trail hike':{g:'cardio',p:'cond',c1:1,ck:'hike',m:['conditioning','quads','calves'],c:'Loaded pack if you have one. Descents are the training stimulus most people skip.'},
+/* --- CARDIO LIBRARY · Beta 3.0 ---
+   `ck` is the CARDIO kind in app.js. It is what makes the Train view log a run as
+   distance · time · pace · average heart rate · effort instead of sets and reps.
+   Every entry in the cardio group MUST carry one (asserted in tests-beta30.js).
+   `ng` keeps an entry out of the workout generator: a swim needs a pool and a
+   ride needs a bike, and the generator's kit list has neither. */
+'Run':{g:'cardio',p:'cond',c1:1,ck:'run',m:['conditioning','calves'],c:'Easy unless the session says otherwise. Tall, relaxed shoulders, quick light feet under the hips.'},
+'Walk':{g:'cardio',p:'cond',c1:1,ck:'walk',m:['conditioning'],c:'Brisk enough to breathe through the nose and still talk. The most underrated recovery tool there is.'},
+'Swim':{g:'cardio',p:'cond',c1:1,ck:'swim',ng:1,m:['conditioning','back','delts'],c:'Long body, head still, exhale fully underwater. Reach, catch, then pull — the catch is where the speed lives.'},
+'Bike ride':{g:'cardio',p:'cond',c1:1,ck:'bike',ng:1,m:['conditioning','quads'],c:'Cadence 85–95. Smooth circles, relaxed upper body. Zone 2 unless the session says otherwise.'},
+'Long ride':{g:'cardio',p:'cond',c1:1,ck:'bike',ng:1,m:['conditioning','quads','glutes'],c:'Time in the saddle is the goal. Eat every 30–45 minutes from the first hour — rehearse race-day fuelling here.'},
+'Bike intervals':{g:'cardio',p:'cond',c1:1,ck:'bike',ng:1,m:['conditioning','quads'],c:'Hard efforts are genuinely hard; recoveries are genuinely easy. That contrast is the whole session.'},
+'Swim intervals':{g:'cardio',p:'cond',c1:1,ck:'swim',ng:1,m:['conditioning','back','delts'],c:'Fixed send-off. Hold the same pace on the last rep as the first — if it falls apart, the send-off is too tight.'},
+'Open water swim':{g:'cardio',p:'cond',c1:1,ck:'swim',ng:1,m:['conditioning','back','delts'],c:'Sight every 6–9 strokes. Practise in a wetsuit before race day, never on it.'},
+'Brick run':{g:'cardio',p:'cond',c1:1,ck:'run',ng:1,m:['conditioning','calves'],c:'Straight off the bike. The first kilometre feels wrong — that is the adaptation. Short quick steps.'},
 /* --- HOME: kettlebell --- */
 'KB two-arm swing':{g:'kb',p:'legs',c1:1,m:['glutes','hams','back','conditioning'],c:'Hips, not arms. Snap the glutes, float the bell. Breathe behind the shield.'},
 'KB single-arm swing':{g:'kb',p:'legs',c1:1,m:['glutes','hams','back','core'],c:'Resist the rotation. Tame the arc.'},
@@ -155,7 +170,7 @@ const EX={
 'Hollow hold':{g:'cal',p:'core',m:['core'],c:'Low back pressed to the floor. If it lifts, tuck the knees more.'},
 'Hanging knee raise':{g:'cal',p:'core',m:['core','forearms'],c:'Toes-to-bar is the destination.'},
 'Dragon flag':{g:'cal',p:'core',m:['core'],c:'Advanced. Body rigid from shoulders down, lower slowly.'},
-'Jump rope':{g:'cal',p:'cond',c1:1,m:['calves','conditioning'],c:'Wrists, not arms. Stay on the balls of the feet. Free ankle resilience.'},
+'Jump rope':{g:'cardio',p:'cond',c1:1,ck:'rope',m:['calves','conditioning'],c:'Wrists, not arms. Stay on the balls of the feet. Free ankle resilience.'},
 'Pistol squat':{g:'cal',p:'legs',m:['quads','glutes','core'],c:'Assisted with a ring or doorframe first. Deep single-leg strength.'},
 'Sissy squat':{g:'cal',p:'legs',m:['quads'],c:'Knees forward, hips extended. Deep quad and knee prehab.'},
 'Band lateral raise':{g:'cal',p:'push',m:['delts'],c:'Stand on the band, lead with the elbow, stop at shoulder height. High reps. Your only direct side-delt work at home — and side delts are what make the shoulders look wide.'},
@@ -259,6 +274,8 @@ function genAllowed(kit,where){
        could not see it because the home-gating assertion only checked for the
        'gym' group and never 'cardio'. */
     if(g==='cardio'){
+      if(e.ng)return false;                                   // pool or bike — not in the kit list
+      if(/jump rope/i.test(n))return has('rope');            // Beta 3.0: moved here from calisthenics
       if(/bike|rower|sled/i.test(n))return has('gym');        // needs a machine
       return where==='out'||where==='any';                    // running, hiking
     }
@@ -274,6 +291,8 @@ function genAllowed(kit,where){
     if(/^sandbag/i.test(n))return has('sandbag');
     if(/farmer carry|suitcase carry/i.test(n))return has('carry')||has('kb1')||has('gym');
     if(/pull-up|chin-up|hang|muscle-up|knee raise to invert|leg raise/i.test(n))return has('bar')||has('rings');
+    /* Beta 3.0: parallel-bar and straight-bar dips need bars (or rings to stand in) */
+    if(/^dip$|straight bar dip/i.test(n))return has('bar')||has('rings');
     if(/^band /i.test(n)||/^band row/i.test(n))return has('bands');
     if(/ab wheel/i.test(n))return has('abwheel');
     if(/jump rope/i.test(n))return has('rope');
@@ -1706,6 +1725,184 @@ ankles:[
   {n:'Toe spreads & foot activation',d:'2 min',c:'Barefoot rehabilitation starts here.'},
   {n:'Ankle inversion / eversion',d:'20 each way',c:'Band or manual. Trail running insurance.'}]
 };
+
+/* ================= BETA 3.0 · NEW MOVEMENTS =================
+   Bar and dip-station calisthenics for P14 (Juan now owns a pull-up bar and a dip
+   station), plus the plyometrics Bruno Žgela's leg day is built on. Every entry
+   carries g and p. The bar-only movements are gated on the bar in genAllowed. */
+Object.assign(EX,{
+'Dip':{g:'cal',p:'push',m:['chest','triceps','delts'],c:'Parallel bars. Shoulders down and back, lower until the shoulder passes the elbow, lock out fully. Bruno Žgela\'s favourite movement — it rewards rhythm, so find one and keep it.'},
+'Straight bar dip':{g:'cal',p:'push',m:['triceps','chest','delts'],c:'On top of the pull-up bar, bar at the hips. Lean the chest over the bar and press down to lockout. The bridge between the dip and the muscle-up.'},
+'Bench dip':{g:'cal',p:'push',m:['triceps'],c:'Hands on a bench or chair behind you, legs straight. Elbows track back, not out. The finisher when the bars have taken everything.'},
+'Close-grip chin-up':{g:'cal',p:'pull',m:['biceps','back','forearms'],c:'Hands a fist apart, palms facing you. Chest to the bar, all the way down every rep.'},
+'Wide pull-up':{g:'cal',p:'pull',m:['back','delts','biceps'],c:'Hands well outside the shoulders. Pull the chest toward the bar and drive the elbows down to the ribs. Short range is the trap — earn the top.'},
+'Muscle-up':{g:'cal',p:'pull',m:['back','triceps','chest'],c:'Bar muscle-up. Explosive pull to the lower chest, wrists over the bar fast, press out. False-grip and negative work first if it is not there yet.'},
+'Jump squat':{g:'cal',p:'legs',m:['quads','glutes','calves'],c:'Land soft, sink straight into the next rep. Quick off the floor — speed is the point, not height.'},
+'Jumping lunge':{g:'cal',p:'legs',m:['quads','glutes','calves'],c:'Switch legs in the air, land with the front heel down and the back knee just off the floor. Count each landing.'}
+});
+Object.assign(TECH,{
+'Circuit':'Every station back to back on a short, fixed rest, then a longer rest between rounds. Bruno Žgela\'s format: as much work as possible in as little time as possible.',
+'Active rest':'An easier movement done in the gap between hard sets of another — push-ups between pulling sets. The rest is still work, which is the whole idea.',
+'Pyramid':'Add five reps a round up to the peak, then come back down the same steps. 5-10-15-20-15-10-5. Two movements paired, so one rests while the other works.',
+'For time':'Fixed work, run the clock. Log the time and beat it next time — that is the progression.',
+'Unbroken':'The whole number without letting go of the bar or leaving the position. Break it and the set restarts in competition.',
+'GTG':'Grease the groove — Pavel. Several small sets spread across the day at about half of your max, never near failure. Strength as a skill: you are practising, not training.',
+'Complex':'Several movements done back to back without putting the weight down. One bell, one bag, no rest until the round is finished.',
+'AM / PM':'Two sessions, at least six hours apart. Endurance in the morning, strength in the evening — never in the same session, so neither stimulus dilutes the other.',
+'VO2':'Hard intervals near your VO2 max — breathing hard, can say three words, not a sentence. This raises the peak; the long easy work widens the base under it.',
+'Heavy':'One to five reps, long rest, perfect reps, stop with one left in the tank. Strength that makes every single stroke, pedal and stride a smaller fraction of what you can do.'
+});
+
+/* ================= P14 · BRUNO ŽGELA — ENDURANCE CALISTHENICS =================
+   Bruno Žgela is a Croatian endurance-calisthenics athlete: multiple-time Croatian
+   national champion, 1st at the Beast of the Barz European Championship, 2nd at
+   the SWCF World Championship. Records include 420 dips in a set (resting at the
+   top), 1,000 push-ups without leaving the position and 1,000 pull-ups in an hour.
+
+   What the programme takes from him, and where it comes from:
+     · "as much as possible in as little time as possible" — circuits on short,
+       fixed rests (his pull day: five rounds, 30s between exercises, 90s between
+       rounds, push-ups used as active rest between the pulling sets)
+     · the 5-to-40 pyramid on dips and push-ups, paired, as his push day
+     · descending plyometric ladders and pistols as his leg day
+     · he trains to beat the last number — when a milestone falls, cut the rest
+       or add volume. That is the block structure below, not a fixed percentage.
+     · he is also genuinely strong (weighted dip ~105kg, weighted pull-up ~60kg),
+       and the strength day here is there for the same reason: a higher ceiling
+       makes every bodyweight rep a smaller fraction of it.
+   The rep targets are scaled for Juan, not copied from a man who does 67
+   unbroken pull-ups. Bruno's numbers are in the notes as the destination. */
+P.p14={id:'p14',name:'Bruno Žgela - Endurance Calisthenics',sub:'Bar & dip station · sets and reps, as much as possible in as little time',
+weeks:8,where:'Home · bar & dip station',bias:'Strength endurance',days:5,coach:'Bruno Žgela',
+why:'Croatian endurance-calisthenics champion Bruno Žgela trains by one rule: do as much as possible in as little time as possible. Rounds on short, fixed rests; push-ups as active rest between pulling sets; dip and push-up pyramids that climb five reps a round to the peak and back down; descending plyometric ladders for the legs. Then he beats the number — when a milestone falls, he cuts the rest or adds volume. One heavy day a week keeps the ceiling rising, because a stronger athlete does every bodyweight rep at a smaller fraction of his max. Saturday is a competition-style set for time, so the progress is a number, not a feeling. Log the session time every time — it is the score.',
+blocks:[{f:1,t:2,type:'Groove',mod:0,note:'Movement first. Find your numbers on every station and leave two reps in the tank. Pyramids climb in steps of 5: 5-10-15-20 and back down. Log the total session time — that is your baseline.'},
+{f:3,t:5,type:'Density',mod:0,note:'Same work, less time. Beat last week\'s session time; when you do, cut 5–10s off the rest between exercises, never between rounds. Pyramid steps grow to 6, then 7 — peaks of 24 and 28.'},
+{f:6,t:6,type:'Deload',mod:-1,note:'One round fewer on everything. Elbows and tendons recover slower than muscle — this week is for them.'},
+{f:7,t:8,type:'Volume & test',mod:1,note:'An extra round on the circuits. Pyramid steps of 8, then 10 — a peak of 40, Bruno\'s own number, if it is there. Still seven rungs. Week 8: Friday swaps the heavy work for one max unbroken set each of dips, pull-ups and push-ups; Saturday is the Calisthenics Cup for time.'}],
+schedule:['A','B','C','rest','D','E','rest'],
+sessions:{
+A:{n:'Pull · volume circuit',w:'home',mins:40,fin:'Dead hang — 2 × max. Bruno\'s grip goes before his lats do; do not let yours.',ex:[
+  {n:'Pull-up',s:5,r:'8-16',t:'Circuit',rest:30},
+  {n:'Chin-up',s:5,r:'8-16',t:'Circuit',rest:30},
+  {n:'Push-up',s:5,r:'25-45',t:'Active rest',rest:30},
+  {n:'Close-grip chin-up',s:5,r:'8-16',t:'Circuit',rest:30},
+  {n:'Wide pull-up',s:5,r:'6-16',t:'Circuit',rest:90},
+  {n:'Hanging leg raise',s:3,r:'12-15',rest:45}]},
+B:{n:'Push · dip pyramid',w:'home',mins:40,fin:'Seven rungs, always: up four, down three. The step grows each block until the peak is Bruno\'s 40. Write down the rung you broke on.',ex:[
+  {n:'Dip',s:7,fix:1,r:'Pyramid 5-10-15-20-15-10-5',t:'Pyramid',rest:0},
+  {n:'Push-up',s:7,fix:1,r:'Pyramid 5-10-15-20-15-10-5',t:'Pyramid',rest:60},
+  {n:'Straight bar dip',s:4,r:'8-12',t:'Superset',rest:0},
+  {n:'Bench dip',s:4,r:'15-25',rest:60},
+  {n:'Pike push-up',s:3,r:'10-15',rest:45}]},
+C:{n:'Legs · plyometric ladder',w:'home',mins:35,fin:'Calves and tibs — 2 × 25 tibialis raises before you sit down.',ex:[
+  {n:'Jumping lunge',s:4,r:'25-24-23-22',t:'Superset',rest:30},
+  {n:'Jump squat',s:4,r:'25-24-23-22',rest:60},
+  {n:'Pistol squat',s:3,r:'12 · 10 · 8 per leg',rest:90},
+  {n:'Bodyweight squat',s:3,r:'50',rest:45},
+  {n:'Tibialis raise',s:2,r:'25',rest:45},
+  {n:'Hollow hold',s:3,r:'45s',rest:45}]},
+D:{n:'Weighted strength',w:'home',mins:45,fin:'A kettlebell on a dip belt or in a backpack is all the load this needs. 16kg is a start; 24kg is the target.',ex:[
+  {n:'Weighted pull-up',s:5,r:'3-5',t:'Heavy',rest:150},
+  {n:'Weighted dip',s:5,r:'3-5',t:'Heavy',rest:150},
+  {n:'Muscle-up',s:5,r:'2-5',rest:120},
+  {n:'Ring push-up',s:3,r:'12-15',rest:60},
+  {n:'Dead hang',s:3,r:'max',rest:60}]},
+E:{n:'Sets & reps · for time',w:'home',mins:25,bench:'cup',fin:'Score it under Benchmarks → Calisthenics Cup. Every attempt, same standard.',ex:[
+  {n:'Bodyweight squat',s:1,fix:1,r:'50',t:'For time',rest:0},
+  {n:'Pull-up',s:1,fix:1,r:'10 + 1 muscle-up, unbroken',t:'Unbroken',rest:0},
+  {n:'Push-up',s:1,fix:1,r:'30',t:'For time',rest:0},
+  {n:'Chin-up',s:1,fix:1,r:'15 + 1 muscle-up, unbroken',t:'Unbroken',rest:0},
+  {n:'Dip',s:1,fix:1,r:'30',t:'For time',rest:0}]}}};
+PORDER.push('p14');
+/* The Saturday set is also a scored workout in its own right, runnable from
+   More → Calisthenics like The Standard. It is the quarter-final routine from the
+   2024 Calisthenics Cup at FIBO, which Bruno contested. */
+CAL.cup={n:'Calisthenics Cup',mins:15,bench:'cup',kind:'For time',
+  note:'The 2024 Calisthenics Cup quarter-final, which Bruno Žgela contested at FIBO. 50 squats, 10 pull-ups plus a muscle-up unbroken, 30 push-ups, 15 chin-ups plus a muscle-up unbroken, 30 dips — for time. The competition squats wear a 10kg vest; note it against the score if you do. Break an unbroken set and that set starts again.',
+  ex:[{n:'Bodyweight squat',s:1,r:'50',rest:0},{n:'Pull-up',s:1,r:'10 + 1 muscle-up, unbroken',rest:0},
+    {n:'Push-up',s:1,r:'30',rest:0},{n:'Chin-up',s:1,r:'15 + 1 muscle-up, unbroken',rest:0},
+    {n:'Dip',s:1,r:'30',rest:0}]};
+CALORDER.push('cup');
+
+/* ================= P15 · ROSS EDGLEY — IRONMAN STRONG =================
+   A full-distance Ironman — 3.8km swim, 180km bike, 42.2km run — over 24 weeks,
+   built on Ross Edgley's view of strength and endurance. Three ideas carry it:
+     1. TIME ON FEET, IN THE SADDLE, IN THE WATER builds the base. The long ride
+        and the long run are the spine of every week and grow ~10% a week.
+     2. SPRINTS RAISE THE PEAK. One VO2 session on the bike and one on the run
+        every week, so the ceiling rises while the base widens beneath it.
+     3. 1-5 REP STRENGTH IS MAINTAINED AND BUILT, NOT DROPPED. A strength reserve
+        makes each single stroke, pedal and stride a smaller fraction of what the
+        body can do; it is also what keeps the rotator cuff, knees and achilles
+        intact through the volume. Edgley is explicit that strength and stamina
+        trained in the SAME session dilute each other, so they never share one —
+        heavy days are AM/PM doubles at least six hours apart, on hard days, so
+        easy days stay easy.
+   Plus the frequent strength snacks: short kettlebell, sandbag and calisthenics
+   minis — complexes and grease-the-groove — any day, from the Today screen. */
+P.p15={id:'p15',name:'Ross Edgley - Ironman Strong',sub:'Full Ironman · 24 weeks · strong enough that every stroke, pedal and stride is easy',
+weeks:24,where:'Pool + road + gym + home',bias:'Endurance',days:6,bare:true,endurance:true,coach:'Ross Edgley',
+why:'A full Ironman — 3.8km swim, 180km bike, 42.2km run — the Ross Edgley way. Time on your feet, in the saddle and in the water builds the base: the long ride and long run are the spine of every week. Sprint work raises the peak: one VO2 session on the bike and one on the run, every week. And heavy 1–5 rep strength is kept and built, not dropped, because a strength reserve makes every single stroke, pedal and stride a smaller fraction of what you can do — and keeps shoulders, knees and achilles intact through the volume. Strength and endurance never share a session; Edgley is clear that mixing them dilutes both. Heavy days are morning endurance, evening strength, on the hard days so the easy days stay easy. On top, the strength snacks: ten-minute kettlebell, sandbag and bar minis, complexes and grease-the-groove, as often as you like from the Today screen.',
+blocks:[{f:1,t:6,type:'Base · time on feet',mod:0,note:'Aerobic volume climbs, no more than 10% a week. Everything except the intervals is Zone 2 — conversational. Strength at 5RM: perfect reps, one left in the tank. Long ride 2h → 3h, long run 75 → 100 min.'},
+{f:7,t:7,type:'Deload',mod:-1,note:'Cut endurance volume by a third, keep one hard interval set and one strength session. Sleep is the session this week.'},
+{f:8,t:13,type:'Build · raise the peak',mod:1,note:'VO2 intervals lengthen: 5×4 min becomes 5×5 on the bike, 6×800m becomes 5×1km on the run. Strength gains a working set and the load climbs to the top of the 3–5 range. Long ride to 4h30, long run to 2h15, open water from week 10.'},
+{f:14,t:14,type:'Deload',mod:-1,note:'A third off everything. Test the 5km and log it — it should have moved.'},
+{f:15,t:20,type:'Specific · race rehearsal',mod:0,note:'Bricks at race effort, race-day nutrition on every long ride, wetsuit swims. Long ride to 5–6h, long run to 2h45 and no further. Strength holds: same heavy 3–5, one rep left in the tank, no chasing PBs while the volume is this high.'},
+{f:21,t:21,type:'Deload',mod:-1,note:'Absorb the hardest six weeks you have done. Easy everything, one short heavy session.'},
+{f:22,t:23,type:'Peak',mod:0,note:'Week 22 is the biggest weekend of the block: race-pace brick, full nutrition plan. Week 23 starts the step down. Strength stays heavy and crisp; drop the last set if the legs are flat.'},
+{f:24,t:24,type:'Taper & race',mod:-1,note:'Volume down by half, intensity stays — short sharp efforts keep you sharp. No strength after Tuesday. Race day: log the time under Benchmarks → Ironman.'}],
+schedule:['A','B','C','D','rest','E','F'],
+sessions:{
+A:{n:'Swim · aerobic + heavy lower',w:'gym',mins:110,bare:1,ex:[
+  {n:'Swim',s:1,r:'AM · 2.5–3.5km steady, 4 × 100m drill in the warm-up',rest:0},
+  {n:'Back squat',s:4,r:'3-5',t:'Heavy',rest:180},
+  {n:'Romanian deadlift',s:3,r:'5',t:'Heavy',rest:150},
+  {n:'Bulgarian split squat',s:3,r:'6 per side',rest:90},
+  {n:'Standing calf raise',s:3,r:'10-12',t:'3s ecc',rest:60},
+  {n:'Ab wheel',s:3,r:'10',rest:60}]},
+B:{n:'Bike VO2 · short brick',w:'out',mins:90,ex:[
+  {n:'Bike intervals',s:5,r:'4 min at VO2 / 4 min easy, inside a 75-min ride',t:'VO2',rest:0},
+  {n:'Brick run',s:1,r:'15–20 min easy, straight off the bike',rest:0}]},
+C:{n:'Run VO2 · swim speed',w:'out',mins:100,bare:1,ex:[
+  {n:'Interval run',s:6,r:'AM · 800m at 5k pace / 400m jog',t:'VO2',rest:0},
+  {n:'Swim intervals',s:10,r:'PM · 100m fast, 20s rest',rest:0},
+  {n:'Hill sprint',s:6,r:'10s all-out, walk down — after the intervals',rest:0}]},
+D:{n:'Swim endurance · heavy upper',w:'gym',mins:105,bare:1,ex:[
+  {n:'Swim',s:1,r:'AM · 3–4km, the main set at Ironman pace',rest:0},
+  {n:'Weighted pull-up',s:5,r:'3-5',t:'Heavy',rest:150},
+  {n:'Weighted dip',s:4,r:'3-5',t:'Heavy',rest:150},
+  {n:'Deadlift',s:3,r:'3',t:'Heavy',rest:180},
+  {n:'KB Turkish get-up',s:3,r:'2 per side',t:'TUT',rest:75},
+  {n:'Face pull',s:3,r:'15-20',rest:45}]},
+E:{n:'Long ride · brick',w:'out',mins:240,ex:[
+  {n:'Long ride',s:1,r:'2h → 6h across the block, Zone 2, eat every 30–45 min',rest:0},
+  {n:'Brick run',s:1,r:'20–45 min, the last 10 at Ironman run pace',rest:0},
+  {n:'Walk',s:1,r:'10 min cool-down',rest:0}]},
+F:{n:'Long run · time on feet',w:'out',mins:150,ex:[
+  {n:'Long run',s:1,r:'75 min → 2h45 across the block, Zone 2',rest:0},
+  {n:'Open water swim',s:1,r:'From week 10 · 30–45 min easy, sighting every 6–9 strokes',rest:0}]}},
+miniNote:'Ten to fifteen minutes, as often as you like — between meetings, before dinner, on a rest day. Never to failure: these keep the strength you built in the gym moving without costing the endurance work anything. Pick one, start it, close it. They log as a second session and never move the programme.',
+minis:[
+  {k:'gtg',n:'Grease the groove · bar & pistol',mins:10,sub:'5 small sets through the day',note:'Pavel\'s grease the groove. Five sets each, spread across the whole day, at about half of your max. Never close to failure — you are practising strength, not training it.',ex:[
+    {n:'Pull-up',s:5,r:'3-5 · half your max',t:'GTG',rest:0},
+    {n:'Pistol squat',s:5,r:'2-3 per leg',t:'GTG',rest:0},
+    {n:'Dip',s:5,r:'5-8',t:'GTG',rest:0}]},
+  {k:'kbcx',n:'Kettlebell complex · 24kg',mins:12,sub:'5 rounds, bell never touches the floor',note:'One bell, five rounds, the bell does not touch the floor until the round is done. Rest 90 seconds between rounds. Strength-endurance for the posterior chain and the shoulders that swim.',ex:[
+    {n:'KB clean',s:5,r:'5 per side',t:'Complex',rest:0},
+    {n:'KB front rack squat',s:5,r:'5 per side',t:'Complex',rest:0},
+    {n:'KB push press',s:5,r:'5 per side',t:'Complex',rest:0},
+    {n:'KB two-arm swing',s:5,r:'10',t:'Complex',rest:90}]},
+  {k:'bag',n:'Sandbag EMOM · 40kg',mins:12,sub:'10-minute EMOM + carry',note:'Ten minutes on the minute: one shoulder to each side. Then carry it. Awkward-object strength is the most Edgley thing on this list.',ex:[
+    {n:'Sandbag shouldering',s:10,r:'1 per side, every minute',t:'EMOM',rest:0},
+    {n:'Sandbag bear hug carry',s:3,r:'40m',rest:60}]},
+  {k:'press',n:'Press & pull ladder',mins:15,sub:'Pavel ladders, never near failure',note:'Ladders of 1-2-3 on the press and the pull-up, three times through. Short, heavy, crisp — the shoulder and lat strength that makes the swim easy.',ex:[
+    {n:'KB military press',s:3,r:'Ladder 1-2-3 per side',t:'Ladder',rest:0},
+    {n:'Pull-up',s:3,r:'Ladder 1-2-3 (+ a bell if easy)',t:'Ladder',rest:60}]},
+  {kbx:'hercules'},{kbx:'zeus'},{sbx:'atlas'}]};
+PORDER.push('p15');
+/* Race day is a benchmark. Scored as a time, like the run PBs. */
+BENCH.push({k:'cup',n:'Calisthenics Cup',u:'time',pb:'',d:'50 squats · 10 pull-ups + 1 muscle-up unbroken · 30 push-ups · 15 chin-ups + 1 muscle-up unbroken · 30 dips. For time.'});
+BENCH.push({k:'ironman',n:'Ironman',u:'time',pb:'',d:'3.8km swim · 180km bike · 42.2km run. Race day — the number the whole of Ironman Strong is for.'});
 
 /* ================= THE ACTUAL LAST LINE =================
    Every content table — EX, KBX, CAL, P, MOBZONES, ZONES — is now populated, so

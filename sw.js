@@ -74,8 +74,27 @@
    other three landed, it would have sat on that stale build indefinitely.
    Bumping again closes the window. LESSON: sw.js goes LAST in any split
    deploy, never first. */
-const C = 'jhfp-beta-2.2.1';
-const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png'];
+/* BETA 3.0 — Juan's update list of 4 Nov 2026.
+   1. LEADING WEALTH DESIGN. The ember theme is retired for the Leading Wealth
+      design system: Chalk and White with Marine ink in LIGHT, the Marine theme in
+      DARK (the default), switchable under Settings → Appearance, with Match phone.
+      Bodoni Moda headlines, Hanken Grotesk everywhere else — both bundled in
+      fonts/ and cached below, so the gym-with-no-signal promise still holds.
+      No gradients, glows, shadows or Maroon tints; corners at 3px. The icon is the
+      same kettlebell in Marine and Chalk with a Light Brass highlight.
+   2. CARDIO LOGS AS CARDIO. Run, Walk, Swim, Jump rope and Bike ride are in the
+      library, and every cardio movement — programmed or not — now logs distance,
+      time, average pace (min/km, min/100m for a swim, km/h for a ride), average
+      HR, effort and calories instead of kg × reps.
+   3. P14 BRUNO ŽGELA — ENDURANCE CALISTHENICS, with the Calisthenics Cup as a
+      scored workout.
+   4. P15 ROSS EDGLEY — IRONMAN STRONG. 24 weeks to a full Ironman, plus optional
+      strength snacks (GTG, KB and sandbag complexes) startable from Today. */
+const C = 'jhfp-beta-3.0';
+const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png',
+  './fonts/bodoni-moda-latin-400-normal.woff2', './fonts/bodoni-moda-latin-500-normal.woff2',
+  './fonts/hanken-grotesk-latin-400-normal.woff2', './fonts/hanken-grotesk-latin-500-normal.woff2',
+  './fonts/hanken-grotesk-latin-600-normal.woff2'];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(C).then(c => c.addAll(ASSETS)).then(() => self.skipWaiting()));

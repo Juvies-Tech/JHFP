@@ -266,6 +266,7 @@ function sessById(id){if(!id)return null;
      rebuilt and this is the only path left. */
   if(id.indexOf('sbx_')===0)return sbxSession(id.slice(4));
   if(id.indexOf('cal_')===0)return calSession(id.slice(4));
+  if(id.indexOf('mini_')===0)return miniSession(id.slice(5));
   const x=XTRAORDER.map(k=>XTRA[k]).find(s=>s.id===id);
   return x||null}
 /* ================= GENERATOR STATE =================
@@ -356,6 +357,52 @@ function startXtra(k){const x=XTRA[k];if(!x)return;
   D.custom[x.id]=x;save();close_();freeSession(x.id)}
 function startCal(k){const c=calSession(k);if(!c)return;
   D.custom[c.id]=c;save();close_();freeSession(c.id)}
+/* ================= STRENGTH SNACKS (Beta 3.0) =================
+   A programme can carry `minis`: short optional sessions — complexes, ladders,
+   grease-the-groove — meant to be done OFTEN, on any day, alongside the block.
+   They run through the same path as the complexes: built, parked in D.custom,
+   started with freeSession(). Their ids ('mini_<pid>_<key>') match no programme
+   slot, so they can never satisfy or advance the queue — a snack is extra work,
+   never a substitute for the session you owe. A mini may instead point at an
+   existing complex ({kbx:'hercules'} / {sbx:'atlas'}), which starts that complex. */
+function miniSession(id){const i=(id||'').indexOf('_');if(i<1)return null;
+  const p=P[id.slice(0,i)],k=id.slice(i+1);
+  const m=p&&(p.minis||[]).find(x=>x.k===k);if(!m||!m.ex)return null;
+  return {id:'mini_'+id,n:m.n,w:m.w||'home',mins:m.mins,mini:1,note:m.note,kind:'Strength snack',ex:m.ex};}
+function startMini(pid,k){const s=miniSession(pid+'_'+k);if(!s)return;
+  D.custom[s.id]=s;save();close_();freeSession(s.id)}
+/* An EXTRA is a snack or a complex started on top of the day — it never stands
+   in for the programme session, so Today looks past it. */
+function isExtraLog(l){return !!(l&&l.free&&/^(mini|kbx|sbx)_/.test(l.sid||''))}
+/* "Start session" on Today when the open log is an extra: jump to the session
+   owed today, opening it beside the extra if it has not been started. */
+function goOwed(){const a=todayLogs(),cur=a.length?a[curIdx()]:null;
+  if(!isExtraLog(cur)){go('train');return}
+  const slot=slotFor(),p=curP();
+  if(!slot||slot==='rest'||slot==='sport'||!p.sessions||!p.sessions[slot]){go('train');return}
+  const i=a.findIndex(l=>l&&l.sid===slot&&l.pid===D.active.id);
+  if(i>=0)setIdx(i);
+  else{const k=todayISO();D.logs[k]=a;
+    a.push({sid:slot,pid:D.active.id,week:curWeek(),ex:[],done:false,start:Date.now()});
+    setIdx(a.length-1);save()}
+  go('train')}
+function miniDoneToday(pid,m){const id=m.kbx?'kbx_'+m.kbx:m.sbx?'sbx_'+m.sbx:'mini_'+pid+'_'+m.k;
+  return todayLogs().filter(l=>l.sid===id&&hasWork(l)).length}
+function miniCard(p){
+  if(!p||!p.minis||!p.minis.length)return '';
+  let h=`<div class="card ice"><div class="row sp"><div class="lbl" style="margin:0">Strength snacks</div><span class="pill">Optional · any day</span></div>
+    <div class="note" style="margin:8px 0 11px">${esc(p.miniNote||'')}</div>`;
+  p.minis.forEach(m=>{
+    let n,sub,on;
+    if(m.kbx){const c=KBX[m.kbx];if(!c)return;n=c.n+' complex';sub='Kettlebell complex';on=`startKbx('${escId(m.kbx)}')`}
+    else if(m.sbx){const c=SBX[m.sbx];if(!c)return;n=c.n+' complex';sub='Sandbag complex';on=`startSbx('${escId(m.sbx)}')`}
+    else{n=m.n;sub=(m.mins?m.mins+' min · ':'')+(m.sub||'');on=`startMini('${escId(p.id)}','${escId(m.k)}')`}
+    const dn=miniDoneToday(p.id,m);
+    h+=`<button class="pk" onclick="${on}"><div style="flex:1;min-width:0"><div class="pkn">${esc(n)}</div>
+      <div class="pkm">${esc(sub)}${dn?' · done today'+(dn>1?' ×'+dn:''):''}</div></div>
+      <span style="color:var(--tx3)">›</span></button>`});
+  return h+'</div>';
+}
 /* TODAY'S session. If a session has already been chosen and logged for today —
    picked on a rest day, rescued, or custom-built — that choice wins over the
    schedule. Reading the schedule alone was why "train anyway" never opened. */
@@ -382,7 +429,9 @@ function progPct(){
 
 /* ================= PROGRESSION ENGINE ================= */
 function setsFor(ex,mod){
-  if(ex.fst)return ex.s;
+  /* `fix` (Beta 3.0): a pyramid has as many sets as it has rungs, and a scored
+     test set is one set — a block modifier must not add or remove one. */
+  if(ex.fst||ex.fix)return ex.s;
   let s=ex.s+(mod||0);
   return Math.max(1,Math.min(ex.s+2,s));
 }
@@ -418,7 +467,10 @@ function wDisp(w){if(w===''||w===null||w===undefined)return '';
   const n=pnum(w);return fmt(n,n%1?1:0)+'kg'}
 
 function target(ex,mod){
-  const L=lastLog(ex.n), rng=parseRange(ex.r), sets=setsFor(ex,mod);
+  /* A pyramid, a ladder or a descending sequence (25-24-23-22) is not a rep
+     RANGE — reading "Pyramid 5-10-…" as 5–10 told him to add a bell at 10. */
+  const L=lastLog(ex.n), sets=setsFor(ex,mod),
+    rng=(ex.t==='Pyramid'||ex.t==='Ladder'||/\d+\s*-\s*\d+\s*-\s*\d+/.test(ex.r||''))?null:parseRange(ex.r);
   if(!L)return{txt:'First time — find a load you can control for '+ex.r+'. Log it and I\'ll progress it from here. Enter 1 for the load if you are doing it at bodyweight.',prev:null};
   const done=L.e.sets.filter(s=>s.done&&(s.r||s.w));
   if(!done.length)return{txt:'Repeat last session and log it.',prev:null};
@@ -498,7 +550,7 @@ function volState2(v,L){L=L||[6,10,20];
   if(v<L[1])return['Building','var(--warn)'];
   if(v<=L[2])return['In range','var(--ok)'];
   if(v<=L[2]*1.6)return['High','var(--ok)'];
-  return['Check this','var(--warn)'];}
+  return['Check this','var(--bad)'];}
 function volState(v,m){return volState2(v,LAND[m])}
 
 /* ================= ANATOMY HEAT MAP =================
@@ -542,10 +594,13 @@ function heatLv(v,L){
   if(v<=L[2]*1.6)return 4;    // high volume — intended, not a fault
   return 5;                    // absurd — almost certainly a miscount
 }
-/* Level 4 is the high-volume band — full ember, not amber. Amber is reserved
-   for the absurd band, which means "your log is probably wrong". */
-const SHADE=[['var(--mus0)',1],['var(--acc)',.38],['var(--acc)',.68],
-             ['var(--acc)',.96],['var(--acc2)',1],['var(--warn)',.96]];
+/* Level 4 is the high-volume band — the standout colour, not the warning one.
+   Warning is reserved for the absurd band, which means "your log is probably
+   wrong". Beta 3.0: shades run in the chart series colour (--heat: Marine on
+   light, White on the Marine theme) because the Leading Wealth system forbids
+   tints of Maroon; only High takes the standout (--heat2: Maroon / Light Brass). */
+const SHADE=[['var(--mus0)',1],['var(--heat)',.30],['var(--heat)',.55],
+             ['var(--heat)',.85],['var(--heat2)',1],['var(--red)',1]];
 function heatFill(v,m){return SHADE[heatLv(v,LAND[m])]}
 
 /* Which muscle the user last tapped, so the caption under the figure can name
@@ -585,7 +640,7 @@ function setHeat(d){HEATDAYS=d;render()}
 /* ================= CARDIO & EFFORT ================= */
 const CARDIO={
 run:{n:'Run',ic:'run',f:[['km','Distance','km'],['min','Time','min']],pace:1,bench:1,met:9.8},
-hike:{n:'Hike / walk',ic:'hike',f:[['km','Distance','km'],['min','Time','min'],['elev','Elevation','m']],met:6.5},
+hike:{n:'Hike',ic:'hike',f:[['km','Distance','km'],['min','Time','min'],['elev','Elevation','m']],pace:1,met:6.5},
 erg:{n:'Bike / row / erg',ic:'erg',f:[['km','Distance','km'],['min','Time','min']],met:8.5},
 interval:{n:'Interval / circuit',ic:'int',f:[['rounds','Rounds',''],['min','Time','min']],met:8.0}};
 /* Striking. The long bag and gloves are part of the home kit, so boxing,
@@ -595,7 +650,31 @@ Object.assign(CARDIO,{
 box:{n:'Boxing',ic:'box',f:[['rounds','Rounds',''],['min','Time','min']],met:9.5},
 kick:{n:'Kickboxing',ic:'box',f:[['rounds','Rounds',''],['min','Time','min']],met:10.0},
 muay:{n:'Muay Thai',ic:'box',f:[['rounds','Rounds',''],['min','Time','min']],met:10.3}});
+/* Beta 3.0 — the cardio library. Pace is a unit, not a flag: runs and walks
+   read min/km, a swim reads min/100m (how every pool clock and coach states it),
+   a ride reads km/h. `pace:1` on the older kinds still means min/km. */
+Object.assign(CARDIO,{
+walk:{n:'Walk',ic:'hike',f:[['km','Distance','km'],['min','Time','min']],pace:1,met:4.3},
+swim:{n:'Swim',ic:'swim',f:[['km','Distance','km'],['min','Time','min']],pace:'100m',met:8.3},
+bike:{n:'Bike ride',sn:'Ride',ic:'erg',f:[['km','Distance','km'],['min','Time','min']],pace:'kmh',met:8.0},
+rope:{n:'Jump rope',sn:'Rope',ic:'int',f:[['rounds','Rounds',''],['min','Time','min']],met:11.0}});
 function isCardio(e){return !!(e&&e.k&&CARDIO[e.k])}
+/* The cardio kind a library movement is logged as, or null for a lift. Read at
+   SEED time rather than written into the programmes, so every path that puts a
+   movement into a session — programme, builder, swap, one-off add, generator,
+   another programme's session — gets the same answer from one place. */
+function cardioKindOf(n){const k=EX[n]&&EX[n].ck;return (k&&CARDIO[k])?k:null}
+/* How fast, in the unit that kind is spoken in. '' when there is not enough to say. */
+function cardioPace(k,km,min){const C=CARDIO[k];if(!C||!C.pace||!km||!min)return '';
+  if(C.pace==='kmh')return (Math.round(km/(min/60)*10)/10)+' km/h';
+  if(C.pace==='100m'){const t=Math.round(min/(km*10)*60);
+    return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')+' /100m';}
+  return pace(km,min)}
+/* "10 × 30s up / walk down" — a cardio prescription reads as what you do, with
+   no sets column, because there is nothing to tick set by set. */
+function cardioPresc(ex){const s=+ex.s||1,r=String(ex.r||''),m=r.match(/^(AM|PM) · /);
+  if(s<=1)return r;
+  return m?m[0]+s+' \u00d7 '+r.slice(m[0].length):s+' \u00d7 '+r}
 
 /* ---- NUMBER & TIME INPUT ----
    BUG (v3): every metric was an <input type="number">. On iOS that rejects a
@@ -625,8 +704,8 @@ function fVal(k,v){return fKind(k)==='time'?ptime(v):pnum(v)}
    kcal = MET x bodyweight kg x hours. Good enough to trend, not a lab number. */
 function estKcal(kind,min){const C=CARDIO[kind];if(!C||!min)return 0;
   return Math.round(C.met*(D.settings.weight||84)*(min/60));}
-function pace(km,min){if(!km||!min)return '';const p=min/km;
-  return Math.floor(p)+':'+String(Math.round((p%1)*60)).padStart(2,'0')+' /km';}
+function pace(km,min){if(!km||!min)return '';const t=Math.round(min/km*60);
+  return Math.floor(t/60)+':'+String(t%60).padStart(2,'0')+' /km';}
 function dayKcal(k){return dayLogs(k).reduce((a,l)=>a+(l.done?(+l.kcal||0):0),0)}
 function kcalOver(days){let t=0;const cut=todayISO(new Date(Date.now()-(days-1)*864e5));
   for(const k in D.logs){if(k>=cut)t+=dayKcal(k)}return t}
@@ -929,9 +1008,14 @@ function render(){
 
 /* ================= TODAY ================= */
 function rToday(){
-  const p=curP(),w=curWeek(),b=blockFor(p,w),slot=slotFor(),s=sessFor(),k=todayISO();
+  const p=curP(),w=curWeek(),b=blockFor(p,w),slot=slotFor(),k=todayISO();
+  /* Beta 3.0: a strength snack or a complex started as an extra must not take
+     over the programme card — the session you owe is still the one shown, and a
+     finished snack does not read as "Session logged". */
+  let s=sessFor();
+  if(isExtraLog(curLog()))s=(slot&&slot!=='rest'&&slot!=='sport'&&p.sessions)?p.sessions[slot]||null:null;
   /* a day is an array of sessions — "done" means at least one is finished */
-  const dayL=dayLogs(k),dn=dayL.some(l=>l&&l.done);
+  const dayL=dayLogs(k),dn=dayL.some(l=>l&&l.done&&!isExtraLog(l));
   const od=queueOverdue();          // days this session has been waiting
   let h='';
 
@@ -960,14 +1044,16 @@ function rToday(){
       <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Gym or home')}</span>
       <span class="pill">${s.mins} min</span></div>
       <div class="mid" style="margin:9px 0 3px">${esc(s.n)}</div>
-      <div class="sub">Week ${w} · ${esc(b.type)} · ${setsFor(s.ex[0],b.mod)>s.ex[0].s?'volume up':'as written'}</div>
+      <div class="sub">Week ${w} · ${esc(b.type)} · ${(x=>!x?'as written':setsFor(x,b.mod)>x.s?'volume up':setsFor(x,b.mod)<x.s?'volume down':'as written')(s.ex.find(e=>!e.k&&!cardioKindOf(e.n)&&!e.fix))}</div>
       ${od?`<div class="warnbox" style="margin-top:10px">Carried over from ${od} day${od===1?'':'s'} ago. Nothing was skipped — the whole programme moved up with you, so this is still the next session you owe.</div>`:''}
       <div class="note" style="margin-top:9px">${esc(b.note)}</div>
-      ${D.settings.bareMode&&p.bare?`<div class="warnbox" style="margin-top:10px">Bare Mode on — run this morning, lift this evening. If the evening lift falls away, use the rescue button rather than losing the day.</div>`:''}
-      <button class="btn p" style="margin-top:12px" onclick="go('train')">${dn?'Session logged — review':'Start session'}</button>
+      ${s.bare?`<div class="warnbox" style="margin-top:10px"><b>AM / PM double.</b> The endurance work this morning, the strength this evening — at least six hours apart, never in one session. If the evening lift falls away, rescue it rather than losing the day.</div>`
+        :(D.settings.bareMode&&p.bare&&!p.endurance?`<div class="warnbox" style="margin-top:10px">Bare Mode on — run this morning, lift this evening. If the evening lift falls away, use the rescue button rather than losing the day.</div>`:'')}
+      <button class="btn p" style="margin-top:12px" onclick="goOwed()">${dn?'Session logged — review':'Start session'}</button>
       ${!dn&&s.w!=='home'?`<button class="btn gh" style="margin-top:7px" onclick="rescue()">Can't make the gym — rescue this session</button>`:''}
     </div>`;
   }
+  h+=miniCard(p);
 
   const jd=jDone(k),ts=trainStreak(),nToday=todayLogs().filter(l=>l.done).length;
   /* Resolved ONCE per render and passed down. Calling journalItems() inside the
@@ -1123,8 +1209,9 @@ function rTrain(){
     if(log.seeded.indexOf(ex.n)>=0)return;      // already seeded — respect the edit
     log.seeded.push(ex.n);
     if(log.ex.find(x=>x.n===ex.n))return;
-    log.ex.push({n:ex.n,k:ex.k,r:ex.r,t:ex.t,rest:ex.rest,fst:ex.fst,
-      sets:Array.from({length:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))});
+    const ck=ex.k||cardioKindOf(ex.n);
+    log.ex.push({n:ex.n,k:ck||undefined,r:ck?cardioPresc(ex):ex.r,t:ex.t,rest:ex.rest,fst:ex.fst,
+      sets:Array.from({length:ck?1:setsFor(ex,b.mod)},()=>({w:'',r:'',done:false}))});
   });
   /* Older logs were stored without the display fields — backfill from the
      programme so a session started on a previous version still renders. */
@@ -1136,7 +1223,7 @@ function rTrain(){
     <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Either')}</span>
     <span class="pill">${esc(b.type)} · wk ${w}/${p.weeks}</span></div>
     <div class="mid" style="margin:9px 0 4px">${esc(s.n)}</div>
-    <div class="note">${esc(b.note)}</div></div>`;
+    <div class="note">${esc(s.mini&&s.note?s.note:b.note)}</div></div>`;
 
   log.ex.forEach((L,i)=>{
     const ex=L, T=target(L,b.mod);
@@ -1146,7 +1233,7 @@ function rTrain(){
         <div class="exh"><div style="flex:1"><div class="exn">${esc(L.n)}</div>
           <div class="exm">${esc(C.n)}${L.r?' · '+esc(L.r):''}</div></div>
           <div class="row" style="gap:8px">
-            <span class="pill b">${esc(C.n.split(' ')[0])}</span>
+            <span class="pill b">${esc(C.sn||C.n.split(' ')[0])}</span>
             <button class="kebab" onclick="open_('exopt','${i}')" aria-label="More options">
               <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><circle cx="12" cy="5" r="1.7"/><circle cx="12" cy="12" r="1.7"/><circle cx="12" cy="19" r="1.7"/></svg></button>
           </div></div>`;
@@ -1158,7 +1245,8 @@ function rTrain(){
               value="${esc(L.c[f[0]]||'')}"
               onchange="cardioSet(${i},'${f[0]}',this.value)"></div>`).join('')}</div>
           ${C.f.some(f=>f[0]==='min')?`<div class="jm" style="margin-top:5px">Time takes 45:30 or 45.5 — either works.</div>`:''}
-          ${C.pace&&fVal('km',L.c.km)&&fVal('min',L.c.min)?`<div class="tgt" style="margin-top:9px">Pace ${pace(fVal('km',L.c.km),fVal('min',L.c.min))}</div>`:''}
+          ${cardioPace(L.k,fVal('km',L.c.km),fVal('min',L.c.min))?`<div class="cpace"><span><b>${esc(cardioPace(L.k,fVal('km',L.c.km),fVal('min',L.c.min)).split(' ')[0])}</b>${esc(cardioPace(L.k,fVal('km',L.c.km),fVal('min',L.c.min)).split(' ').slice(1).join(' '))} avg ${CARDIO[L.k].pace==='kmh'?'speed':'pace'}</span></div>`
+            :(C.pace?`<div class="jm" style="margin-top:6px">Enter distance and time and the average ${C.pace==='kmh'?'speed':'pace'} works itself out.</div>`:'')}
           <div class="grid3" style="margin-top:9px">
             <div><div class="tiny">Calories</div><input type="text" inputmode="numeric"
               placeholder="${estKcal(L.k,fVal('min',L.c.min))||'—'}" value="${esc(L.c.kcal||'')}"
@@ -1215,7 +1303,7 @@ function rTrain(){
   });
 
   if(s.fin)h+=`<div class="card"><div class="lbl">Finisher</div><div class="note">${esc(s.fin)}</div>
-    <div class="warnbox" style="margin-top:9px">Bike, rower, sled or hill sprints by preference. Flat running is the one that competes with your lifting — hills are concentric-dominant and cost far less.</div></div>`;
+    ${/bike|rower|sled|sprint|assault/i.test(s.fin)?`<div class="warnbox" style="margin-top:9px">Bike, rower, sled or hill sprints by preference. Flat running is the one that competes with your lifting — hills are concentric-dominant and cost far less.</div>`:''}</div>`;
 
   h+=`<div class="card red"><div class="lbl">Session burn, heart rate &amp; effort</div>
     <div class="grid3">
@@ -1264,13 +1352,19 @@ function setW(i,j,el){const l=curLog();if(!l||!l.ex[i]||!l.ex[i].sets[j])return;
   el.classList.toggle('bw',isBW(raw));
   save()}
 function cardioSet(i,f,v){const l=curLog();if(!l||!l.ex[i])return;
-  l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;save()}
+  l.ex[i].c=l.ex[i].c||{};l.ex[i].c[f]=v;cardioRepace(l.ex[i]);save()}
+/* The banked pace is derived, never typed: whenever distance or time change on
+   a LOGGED entry, it is recomputed, so the export can never carry a stale one. */
+function cardioRepace(e){const c=e&&e.c;if(!c)return;
+  const pc=c.done&&cardioPace(e.k,fVal('km',c.km),fVal('min',c.min));
+  if(pc)c.pace=pc;else delete c.pace}
 function cardioDone(i){const l=curLog();if(!l||!l.ex[i])return;
   const e=l.ex[i],c=e.c=e.c||{};
   c.done=!c.done;
   /* read the kind off the LOG entry. Indexing the programme list with a log
      index is precisely the class of bug this release removes. */
   if(c.done&&!c.kcal)c.kcal=estKcal(e.k,fVal('min',c.min));
+  cardioRepace(e);
   save();rTrain()}
 function setDone(i,j,rest){const l=curLog();if(!l||!l.ex[i])return;
   if(l.ex[i].skip||!l.ex[i].sets[j])return;    // a removed exercise cannot be logged
@@ -1322,8 +1416,11 @@ function exSwap(i,name){if(!name)return;const l=exAt(i);if(!l)return;
   e.n=name;e.sub=1;
   e.r=pr.r;e.rest=pr.rest;e.t=pr.t;e.fst=pr.fst;
   /* a cardio slot swapped for a lift must stop being cardio, or it keeps
-     rendering distance/time and banking the old calories */
+     rendering distance/time and banking the old calories. Beta 3.0: and a lift
+     swapped for a run must START being cardio, or it asks for kg and reps. */
   delete e.k;delete e.c;
+  const ck=cardioKindOf(name);if(ck){e.k=ck;e.c={};e.r=cardioPresc({s:1,r:pr.r||''});e.sets=e.sets.slice(0,1)}
+  else if(e.sets.length<2){const n=Math.max(1,setsFor({s:3},0));while(e.sets.length<n)e.sets.push({w:'',r:'',done:false})}
   e.sets.forEach(s=>{s.w='';s.r='';s.done=false;delete s.rs});
   save();close_();rTrain()}
 function exSets(i,n){const l=exAt(i);if(!l)return;
@@ -1351,6 +1448,11 @@ function finish(){
   /* curLog() is null if midnight rolled over with the Train view open */
   const l=curLog();if(!l){go('train');return}
   l.done=true;l.dur=Math.round((Date.now()-(l.start||Date.now()))/1000);
+  /* Beta 3.0: a cardio card with its numbers typed in but "Log it" never tapped
+     is still work done — bank it on finish rather than dropping it. */
+  l.ex.forEach(e=>{if(!isCardio(e)||e.skip||!e.c||e.c.done)return;
+    if(fVal('min',e.c.min)>0||fVal('km',e.c.km)>0||pnum(e.c.rounds)>0){e.c.done=true;
+      if(!e.c.kcal)e.c.kcal=estKcal(e.k,fVal('min',e.c.min));cardioRepace(e)}});
   /* calories: whatever Juan entered, else cardio entries, else a lifting estimate */
   let ck=l.ex.reduce((a,e)=>a+(e.c&&+e.c.kcal||0),0);
   if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
@@ -1497,7 +1599,8 @@ function editWorkout(id){const w=D.mine.find(x=>x.id===id);
   BUILD=w?JSON.parse(JSON.stringify(w)):null;if(BUILD)open_('build')}
 function bName(v){BUILD.n=v}
 function bWhere(v){BUILD.w=v;open_('build')}
-function bAdd(n){if(!n)return;BUILD.ex.push({n:n,s:3,r:'10',rest:90});open_('build')}
+function bAdd(n){if(!n)return;const ck=cardioKindOf(n);
+  BUILD.ex.push(ck?{n:n,k:ck,s:1,r:'',rest:0}:{n:n,s:3,r:'10',rest:90});open_('build')}
 function bAddCardio(k){const C=CARDIO[k];if(!C)return;
   BUILD.ex.push({n:C.n,k:k,s:1,r:'',rest:0});open_('build')}
 function bDel(i){BUILD.ex.splice(i,1);open_('build')}
@@ -1766,8 +1869,8 @@ function rProg(){
       <span style="color:var(--tx3)"> · target ${Math.round(mv[1][1])}–${Math.round(mv[1][2])}</span></div>`;}
   else h+=`<div class="jm" style="text-align:center;padding:0 8px 8px">Tap any muscle to name it and see its set count.</div>`;
   h+=`<div class="row" style="gap:12px;flex-wrap:wrap;justify-content:center;padding:8px 4px 10px;border-top:1px solid var(--bd);margin-top:4px">
-        ${[['Untrained','var(--mus0)',1],['Maintaining','var(--acc)',.38],['Building','var(--acc)',.68],['In range','var(--acc)',.96],['High','var(--acc2)',1],['Check','var(--warn)',.96]]
-          .map(l=>`<span class="row" style="gap:5px"><span style="width:11px;height:11px;border-radius:3px;background:${l[1]};opacity:${l[2]}"></span><span style="font-size:11px;color:var(--tx3)">${l[0]}</span></span>`).join('')}
+        ${[['Untrained',SHADE[0][0],SHADE[0][1]],['Maintaining',SHADE[1][0],SHADE[1][1]],['Building',SHADE[2][0],SHADE[2][1]],['In range',SHADE[3][0],SHADE[3][1]],['High',SHADE[4][0],SHADE[4][1]],['Check',SHADE[5][0],SHADE[5][1]]]
+          .map(l=>`<span class="row" style="gap:5px"><span style="width:11px;height:11px;border-radius:0;background:${l[1]};opacity:${l[2]};outline:1px solid var(--bd)"></span><span style="font-size:11px;color:var(--tx3)">${l[0]}</span></span>`).join('')}
       </div></div>
     <div class="note" style="margin-bottom:10px">Each muscle is shaded against its own landmarks, not one shared number — back and core recover from far more volume than biceps or calves. The bands follow Jocic rather than RP: <b>High</b> is the intended zone for a growth block, not a warning. Only <b>Check this</b> is a flag, and it means the count is probably wrong rather than the training.</div>
     <div class="hm">`;
@@ -2071,6 +2174,9 @@ function histOpen(d,i){open_('hist',d+'|'+i)}
 function histRef(key){const [d,i]=String(key).split('|');
   return{d:d,i:+i||0,l:dayLogs(d)[+i||0]}}
 function histField(key,f,v){const r=histRef(key);if(r.l){r.l[f]=v;save()}}
+/* Beta 3.0: a logged run is corrected as a run — the banked pace follows. */
+function histCardio(key,i,f,v){const r=histRef(key);if(!r.l||!r.l.ex[i])return;
+  const e=r.l.ex[i];e.c=e.c||{};e.c[f]=v;cardioRepace(e);save();open_('hist',key)}
 function histSetV(key,i,j,f,v){const r=histRef(key);
   if(r.l&&r.l.ex[i])
     {r.l.ex[i].sets[j][f]=(f==='w')?normW(v):v;save()}}
@@ -2085,10 +2191,13 @@ let RETRO=null;
 function retroNew(){RETRO={d:todayISO(),sid:'',ex:[],kcal:'',hr:'',effort:'',mins:'',at:''};open_('retro')}
 function retroSet(f,v){RETRO[f]=v;if(f==='sid')retroLoad(v);else open_('retro')}
 function retroLoad(sid){const s=sessById(sid);
-  RETRO.ex=s?s.ex.filter(e=>!e.k).map(e=>({n:e.n,s:setsFor(e,0),w:'',r:''})):[];
+  RETRO.ex=s?s.ex.map(e=>{const ck=e.k||cardioKindOf(e.n);
+    return ck?{n:e.n,k:ck,c:{}}:{n:e.n,s:setsFor(e,0),w:'',r:''}}):[];
   open_('retro')}
 function retroEx(i,f,v){RETRO.ex[i][f]=v}
-function retroAdd(n){if(!n)return;RETRO.ex.push({n:n,s:3,w:'',r:''});open_('retro')}
+function retroAdd(n){if(!n)return;const ck=cardioKindOf(n);
+  RETRO.ex.push(ck?{n:n,k:ck,c:{}}:{n:n,s:3,w:'',r:''});open_('retro')}
+function retroC(i,f,v){const e=RETRO.ex[i];if(e){e.c=e.c||{};e.c[f]=v}}
 function retroDel(i){RETRO.ex.splice(i,1);open_('retro')}
 function retroSave(){
   if(!RETRO.d){alert('Pick the date it happened.');return}
@@ -2099,11 +2208,15 @@ function retroSave(){
     start:new Date(RETRO.d).getTime(),ex:[],kcal:pnum(RETRO.kcal),hr:pnum(RETRO.hr),
     effort:pnum(RETRO.effort),mins:ptime(RETRO.mins),at:RETRO.at||''};
   RETRO.ex.forEach(e=>{
+    if(e.k&&CARDIO[e.k]){const c=Object.assign({},e.c||{},{done:true});
+      if(!c.kcal)c.kcal=estKcal(e.k,fVal('min',c.min));
+      const x={n:e.n,k:e.k,c:c,r:'',sets:[{w:'',r:'',done:false}]};cardioRepace(x);l.ex.push(x);return}
     const n=Math.max(1,+e.s||1),sets=[];
     for(let i=0;i<n;i++)sets.push({w:e.w,r:e.r,done:true});
     l.ex.push({n:e.n,sets:sets});});
-  if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.length,0);
-    l.kcal=Math.round(sets*(D.settings.weight||84)*0.11)}
+  if(!l.kcal){const sets=l.ex.reduce((a,e)=>a+e.sets.filter(x=>x.done).length,0);
+    l.kcal=Math.round(sets*(D.settings.weight||84)*0.11)
+      +l.ex.reduce((a,e)=>a+(e.c&&+e.c.kcal||0),0)}
   const day=dayLogs(RETRO.d);D.logs[RETRO.d]=day;day.push(l);
   D.journal[RETRO.d]=D.journal[RETRO.d]||{};D.journal[RETRO.d].workout=true;
   l.ex.forEach(e=>{e.sets.forEach(x=>{
@@ -2405,8 +2518,8 @@ function gateRender(){
   const p=list.find(x=>x.id===GATE.pid)||list[0];
   const M=GATE.mode;
   let h=`<img class="gmark" src="icon.png" alt="">
-    <div class="gtitle">Juvies Health &amp; Fitness</div>
-    <div class="gsub">Protocol</div>`;
+    <div class="gtitle">JHFP</div>
+    <div class="gsub">Juvies Health &amp; Fitness Protocol</div>`;
 
   /* BETA 2.2 — the data warning moved. It used to sit here, above sign-in, in
      full, on every screen of the gate. That was the right instinct and the
@@ -2425,7 +2538,7 @@ function gateRender(){
       <div class="row" style="gap:12px;margin-bottom:14px">
         ${avatar(p,'lg')}
         <div style="flex:1;min-width:0">
-          <div style="font-size:19px;font-weight:700;line-height:1.2">${esc(p.name)}</div>
+          <div style="font-family:var(--font-display);font-size:24px;font-weight:500;line-height:1.2;color:var(--ink)">${esc(p.name)}</div>
           <div class="jm">@${esc(p.user)}${p.owner?' · master account':''}</div>
         </div></div>
       <div class="gfield"><label for="gpw">Password</label>
@@ -2515,13 +2628,13 @@ function gateRender(){
   h+=`<div class="gcard phil">
     <button class="row sp" style="width:100%;text-align:left" onclick="gateNote()">
       <div style="flex:1">
-        <div style="font-weight:700;font-size:15px">⚠️ Data Usage Note</div>
+        <div style="font-weight:600;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:7px"><svg class="wicon" aria-label="Warning" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3 2.5 20h19z"/><path d="M12 10v4.5"/><path d="M12 17.3v.2"/></svg>Data Usage Note</div>
         <div class="jm" style="margin-top:2px">${GATE.note?'Tap to close':'Your log lives on this phone only · back it up weekly'}</div>
       </div>
       <span style="color:var(--acc);font-size:19px">${GATE.note?'−':'+'}</span></button>`;
   if(GATE.note){
     h+=`<div class="gwarn" style="margin-top:12px">
-      <div class="gwt">⚠ Nothing is uploaded anywhere</div>
+      <div class="gwt">Nothing is uploaded anywhere</div>
       <div class="jm">That is deliberate for now — but it also means
         <b>uninstalling the app, resetting the phone, or clearing site data erases your log for good.</b>
         Back it up weekly: <b>More → Data → Backup all data</b>, then send Juan the file so he can keep
@@ -2835,6 +2948,12 @@ hist:key=>{const r=histRef(key),l=r.l;
   </div>`;
   (l.ex||[]).forEach((e,i)=>{
     h+=`<div class="sec" style="margin:16px 0 7px">${esc(e.n)}${e.skip?' · skipped':''}${e.warm?' · warm-up':''}</div>`;
+    if(isCardio(e)){const C=CARDIO[e.k],c=e.c||{};
+      h+=`<div class="grid3">${C.f.concat([['hr','Avg HR','bpm'],['effort','Effort',''],['kcal','Calories','']]).map(f=>
+        `<div><div class="tiny">${f[1]}${f[2]?' '+f[2]:''}</div><input type="text" inputmode="${fKind(f[0])==='int'?'numeric':'decimal'}"
+          value="${esc(c[f[0]]||'')}" onchange="histCardio('${key}',${i},'${f[0]}',this.value)"></div>`).join('')}</div>
+        ${c.pace?`<div class="jm" style="margin-top:5px">Average ${C.pace==='kmh'?'speed':'pace'} ${esc(c.pace)}</div>`:''}`;
+      return;}
     (e.sets||[]).forEach((st,j)=>{
       h+=`<div class="st" style="grid-template-columns:22px 1fr 1fr 42px"><span>${j+1}</span>
         <input type="text" inputmode="decimal" value="${esc(wDisp(st.w))}" onchange="histSetV('${key}',${i},${j},'w',this.value)" class="${isBW(st.w)?'bw':''}">
@@ -2877,11 +2996,14 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
   ${R.ex.length?R.ex.map((e,i)=>`<div class="card plain" style="background:var(--s2);padding:11px">
       <div class="row sp"><span style="font-weight:600;font-size:14px;flex:1">${esc(e.n)}</span>
         <button onclick="retroDel(${i})" style="color:var(--tx3)">✕</button></div>
+      ${e.k&&CARDIO[e.k]?`<div class="grid3" style="margin-top:8px">${CARDIO[e.k].f.concat([['hr','Avg HR','bpm']]).map(f=>
+        `<div><div class="tiny">${f[1]}${f[2]?' '+f[2]:''}</div><input type="text" inputmode="${fKind(f[0])==='int'?'numeric':'decimal'}"
+          placeholder="${fKind(f[0])==='time'?'45:30':''}" value="${esc((e.c||{})[f[0]]||'')}" onchange="retroC(${i},'${f[0]}',this.value)"></div>`).join('')}</div></div>`:`
       <div class="grid3" style="margin-top:8px">
         <div><div class="tiny">Sets</div><input type="text" inputmode="numeric" value="${esc(e.s)}" onchange="retroEx(${i},'s',this.value)"></div>
         <div><div class="tiny">KG</div><input type="text" inputmode="decimal" placeholder="1 = BW" value="${esc(e.w)}" onchange="retroEx(${i},'w',this.value)"></div>
         <div><div class="tiny">Reps</div><input type="text" inputmode="numeric" value="${esc(e.r)}" onchange="retroEx(${i},'r',this.value)"></div>
-      </div></div>`).join('')
+      </div></div>`}`).join('')
    :`<div class="note" style="margin-bottom:10px">Pick a session above, or add movements one at a time.</div>`}
   <select id="rx" style="margin-top:8px">${opts}</select>
   <button class="btn gh" style="margin-top:8px" onclick="retroAdd(document.getElementById('rx').value)">Add exercise</button>
@@ -3093,13 +3215,13 @@ gen:()=>{
 
   <div class="sec">Your workout</div>
   <div class="card acc">
-    <div class="row sp"><div class="mid" style="font-size:17px">${esc(s.n)}</div>
+    <div class="row sp"><div class="mid" style="font-size:20px">${esc(s.n)}</div>
       <span class="pill a">${esc(s.kind||'')}</span></div>
     <div class="note" style="margin:8px 0 11px">${esc(s.note)}</div>`;
   s.ex.forEach(e=>{
     h+=`<div class="tst" style="background:none;border-color:var(--bd)">
       <div style="flex:1"><div style="font-weight:600;font-size:14px">${esc(e.n)}</div>
-      <div class="jm">${e.s} × ${esc(e.r)}${e.rest?' · rest '+e.rest+'s':' · no rest'}</div></div>
+      <div class="jm">${cardioKindOf(e.n)?esc(cardioPresc(e))+' · logged as '+esc(CARDIO[cardioKindOf(e.n)].n.toLowerCase()):e.s+' × '+esc(e.r)+(e.rest?' · rest '+e.rest+'s':' · no rest')}</div></div>
       <span class="pill">${esc(((EX[e.n]||{}).m||[])[0]||'')}</span></div>`});
   if(s.fin)h+=`<div class="note" style="margin-top:10px">${esc(s.fin)}</div>`;
   h+=`</div>
@@ -3297,6 +3419,7 @@ pg:id=>{const p=P[id],on=id===D.active.id,pct=progPct();
       <span class="pill">${esc(p.where)}</span><span class="pill">${esc(p.bias)}</span>
       ${p.fst?'<span class="pill a">FST-7</span>':''}${p.pavel?'<span class="pill a">Pavel rules</span>':''}
       ${p.bare?'<span class="pill a">Bare Mode</span>':''}</div>
+    ${p.coach?`<div class="jm" style="margin:-4px 0 10px">Method: ${esc(p.coach)}</div>`:''}
     <div class="note">${esc(p.why)}</div>
     <div class="sec">The week</div>
     <div class="note">${!p.schedule
@@ -3305,6 +3428,10 @@ pg:id=>{const p=P[id],on=id===D.active.id,pct=progPct();
         return `<b>${d}</b> \u2014 ${x==='rest'?'Rest':x==='sport'?'Sport':esc(p.sessions[x].n)+' <span style="color:var(--tx3)">('+p.sessions[x].mins+' min)</span>'}`}).join('<br>')}</div>
     <div class="sec">Blocks</div>
     <div class="note">${p.blocks.map(b=>`<b>Weeks ${b.f}${b.t>b.f?'–'+b.t:''} · ${esc(b.type)}</b><br><span style="color:var(--tx2)">${esc(b.note)}</span>`).join('<br><br>')}</div>
+    ${p.minis&&p.minis.length?`<div class="sec">Strength snacks</div><div class="note">${esc(p.miniNote||'')}<br><br>${p.minis.map(m=>
+      m.kbx?(KBX[m.kbx]?'<b>'+esc(KBX[m.kbx].n)+' complex</b> \u2014 kettlebell':'')
+      :m.sbx?(SBX[m.sbx]?'<b>'+esc(SBX[m.sbx].n)+' complex</b> \u2014 sandbag':'')
+      :'<b>'+esc(m.n)+'</b> \u2014 '+m.ex.map(e=>esc(e.n)+' '+(e.s>1?e.s+'\u00d7':'')+esc(e.r)).join(' \u00b7 ')).filter(Boolean).join('<br>')}</div>`:''}
     ${on?`<div class="card" style="margin-top:16px;background:var(--s2)"><div class="lbl">Active</div>
       <div class="bar"><i style="width:${pct}%"></i></div>
       <div class="jm" style="margin-top:7px">${p.weeks?pct+'% through. Week '+curWeek()+' of '+p.weeks+'.':'Running with no block. Nothing to fall behind on.'}</div>
@@ -3482,10 +3609,15 @@ sw:()=>`<div class="mid">Stopwatch</div>
   <div class="jm" style="margin-top:10px">Use this for The Standard, Murph, Anna and anything timed. Log the result under Progress \u2192 Benchmarks.</div>
   <button class="btn gh" style="margin-top:10px" onclick="close_()">Close</button>`,
 
-set:()=>{const S=D.settings;return `<div class="mid">Settings</div>
+set:()=>{const S=D.settings,TH=themeGet();return `<div class="mid">Settings</div>
+  <div class="sec">Appearance</div>
+  <div class="seg" role="group" aria-label="Theme">
+    ${[['dark','Dark'],['light','Light'],['system','Match phone']].map(o=>
+      `<button class="${TH===o[0]?'on':''}" aria-pressed="${TH===o[0]}" onclick="themeSet('${o[0]}')">${o[1]}</button>`).join('')}</div>
+  <div class="jm" style="margin-top:6px">Dark is the Marine theme, light is Chalk. Saved on this phone for every profile, including the sign-in screen.</div>
   <div class="sec">Bare Mode</div>
   <div class="row sp"><div style="flex:1"><div style="font-weight:600;font-size:15px">Run first, lift later</div>
-    <div class="jm">Nick Bare's double-day. Only applies to Froning &amp; Fraser, Trail &amp; Summit and Long Road.</div></div>
+    <div class="jm">Nick Bare's double-day. Applies to Froning &amp; Fraser, Trail &amp; Summit, Long Road and Ironman Strong.</div></div>
     <button class="tick ${S.bareMode?'on':''}" style="width:52px" onclick="tglBare()">${CHK}</button></div>
 
   <div class="sec">You</div>
@@ -3504,7 +3636,7 @@ set:()=>{const S=D.settings;return `<div class="mid">Settings</div>
   <button class="btn gh" style="margin-top:9px" onclick="recalc()">Recalculate from my numbers</button>
   <button class="btn p" style="margin-top:14px" onclick="saveSet()">Save</button>
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>
-  <div class="jm" style="margin-top:14px">JHFP v1 · built for Juvies. All data lives on this device — back it up from More.</div>`}
+  <div class="jm" style="margin-top:14px">JHFP Beta 3.0 · built for Juvies. All data lives on this device — back it up from More.</div>`}
 };
 
 /* ================= SHEET ACTIONS ================= */
@@ -3673,7 +3805,9 @@ function addExToday(){
   const sets=Math.max(1,Math.min(12,+((document.getElementById('as')||{}).value)||3));
   const reps=((document.getElementById('ar')||{}).value)||'10';
   const rest=+((document.getElementById('ard')||{}).value)||90;
-  l.ex.push({n:n,r:reps,rest:rest,
+  const ck=cardioKindOf(n);
+  if(ck)l.ex.push({n:n,k:ck,c:{},r:'',rest:0,sets:[{w:'',r:'',done:false}]});
+  else l.ex.push({n:n,r:reps,rest:rest,
     sets:Array.from({length:sets},()=>({w:'',r:'',done:false}))});
   l.seeded=l.seeded||[];
   if(l.seeded.indexOf(n)<0)l.seeded.push(n);
@@ -3681,6 +3815,40 @@ function addExToday(){
 }
 
 function tglBare(){D.settings.bareMode=!D.settings.bareMode;save();open_('set')}
+/* ================= THEME (Beta 3.0) =================
+   Device-level, deliberately NOT in D: the sign-in portal is painted before any
+   profile is loaded, and a per-profile theme would flash the wrong one there.
+   'dark' (Marine) is the default; 'system' follows prefers-color-scheme and
+   re-applies when the phone flips. The same logic runs inline in index.html's
+   <head> so the first paint is already right — keep the two in step. */
+const THEMEKEY='jhfp_theme';
+function themeGet(){const v=THEMEMEM||STORE.get(THEMEKEY);return (v==='light'||v==='system')?v:'dark'}
+function themeResolve(v){
+  if(v==='system'){try{return window.matchMedia('(prefers-color-scheme: light)').matches?'light':'dark'}
+    catch(e){return 'dark'}}
+  return v==='light'?'light':'dark'}
+function themeApply(){const t=themeResolve(themeGet());
+  try{document.documentElement.setAttribute('data-theme',t)}catch(e){}
+  try{const m=document.getElementById('themecolor');if(m&&m.setAttribute)m.setAttribute('content',t==='light'?'#F6F3EC':'#17304F')}catch(e){}
+  try{const sb=document.getElementById('sbstyle');if(sb&&sb.setAttribute)sb.setAttribute('content',t==='light'?'default':'black-translucent')}catch(e){}
+  return t}
+/* Writes through STORE.setq, not STORE.set: a theme that will not persist is
+   not worth the "storage is full" alert — the choice still
+   applies for this session. And it flips the segment in place instead of
+   re-rendering the sheet, which would throw away anything typed into the
+   weight and macro fields below it. */
+let THEMEMEM=null;
+function themeSet(v){v=(v==='light'||v==='system')?v:'dark';THEMEMEM=v;
+  STORE.setq(THEMEKEY,v);
+  themeApply();
+  try{document.querySelectorAll('.seg button').forEach(b=>{
+    const on=(b.getAttribute('onclick')||'').indexOf("'"+v+"'")>-1;
+    b.classList.toggle('on',on);b.setAttribute('aria-pressed',on?'true':'false')})}catch(e){}}
+try{const mq=window.matchMedia&&window.matchMedia('(prefers-color-scheme: light)');
+  const fn=()=>{if(themeGet()==='system')themeApply()};
+  if(mq&&mq.addEventListener)mq.addEventListener('change',fn);
+  else if(mq&&mq.addListener)mq.addListener(fn);             // iOS before 14
+}catch(e){}
 function saveSet(){['weight','age','height','restDefault','kcal','protein','fat'].forEach(k=>{
   const el=document.getElementById('s_'+k);if(el&&el.value!=='')D.settings[k]=+el.value});save();close_()}
 function recalc(){const S=D.settings;
@@ -3773,7 +3941,9 @@ function expObs(){
       if(e.c&&e.c.done){
         const C=CARDIO[e.k]||{f:[]};
         const bits=C.f.map(f=>e.c[f[0]]?f[1]+' '+e.c[f[0]]+(f[2]?f[2]:''):null).filter(Boolean);
+        if(e.c.pace)bits.push('avg '+e.c.pace);
         if(e.c.hr)bits.push('avg HR '+e.c.hr);
+        if(e.c.effort)bits.push('effort '+e.c.effort+'/10');
         if(e.c.kcal)bits.push(e.c.kcal+' kcal');
         m+='- **'+e.n+'** — '+(bits.join(', ')||'done')+'\n';
         return;}
@@ -3857,8 +4027,8 @@ function bootFail(err){
   if(g)g.classList.remove('hidden');
   document.documentElement.classList.add('gated');
   c.innerHTML=`<img class="gmark" src="icon.png" alt="">
-    <div class="gtitle">Something went wrong</div>
-    <div class="gsub">Protocol</div>
+    <div class="gtitle" style="letter-spacing:0;font-size:30px">Something went wrong</div>
+    <div class="gsub">Juvies Health &amp; Fitness Protocol</div>
     <div class="gcard">
       <div class="gerr">${esc(String((err&&err.message)||err||'Unknown error'))}</div>
       <div class="jm" style="margin-bottom:13px">Your training data has NOT been touched — it is still on this phone. Try these in order.</div>
