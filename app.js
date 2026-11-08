@@ -2190,13 +2190,43 @@ function histDel(key){const r=histRef(key);if(!r.l)return;
 let RETRO=null;
 function retroNew(){RETRO={d:todayISO(),sid:'',ex:[],kcal:'',hr:'',effort:'',mins:'',at:''};open_('retro')}
 function retroSet(f,v){RETRO[f]=v;if(f==='sid')retroLoad(v);else open_('retro')}
-function retroLoad(sid){const s=sessById(sid);
+/* Beta 3.0.1 — cardio has its own picker when logging after the fact. In the
+   full exercise list it sat last of five groups, under 200-odd lifts, and the
+   striking and erg kinds were not in it at all (they have no library movement
+   of their own). Values are either a library name ("Run") or "k:<kind>" for a
+   kind with no library entry ("k:box"). Grouped the way you would look for it. */
+const CARDIOPICK=[['Run & walk',['run','walk','hike']],['Swim',['swim']],
+  ['Bike & erg',['bike','erg']],['Rope & intervals',['rope','interval']],
+  ['Striking',['box','kick','muay']]];
+function cardioPickList(){
+  return CARDIOPICK.map(([label,kinds])=>{const items=[];
+    kinds.forEach(k=>{if(!CARDIO[k])return;
+      const ns=Object.keys(EX).filter(n=>cardioKindOf(n)===k).sort((a,b)=>a.localeCompare(b));
+      if(ns.length)ns.forEach(n=>items.push(['n',n,n]));
+      else items.push(['k','k:'+k,CARDIO[k].n])});
+    /* The everyday ones first, so the picker opens on Run, not Brick run. */
+    const top=['Run','Walk','Swim','Bike ride','Jump rope'];
+    items.sort((a,b)=>{const ia=top.indexOf(a[2]),ib=top.indexOf(b[2]);
+      return (ia<0?99:ia)-(ib<0?99:ib)});
+    return [label,items]}).filter(g=>g[1].length)}
+function cardioPickOptions(prefix){
+  return cardioPickList().map(([label,items])=>'<optgroup label="'+esc(label)+'">'
+    +items.map(it=>'<option value="'+esc((prefix||'')+it[1])+'">'+esc(it[2])+'</option>').join('')
+    +'</optgroup>').join('')}
+/* One cardio entry for the retro sheet, from either value form. */
+function retroCardioEx(v){
+  if(v.indexOf('k:')===0){const k=v.slice(2);return CARDIO[k]?{n:CARDIO[k].n,k:k,c:{}}:null}
+  const ck=cardioKindOf(v);return ck?{n:v,k:ck,c:{}}:null}
+function retroLoad(sid){
+  if(sid&&sid.indexOf('cardio:')===0){const e=retroCardioEx(sid.slice(7));
+    RETRO.ex=e?[e]:[];open_('retro');return}
+  const s=sessById(sid);
   RETRO.ex=s?s.ex.map(e=>{const ck=e.k||cardioKindOf(e.n);
     return ck?{n:e.n,k:ck,c:{}}:{n:e.n,s:setsFor(e,0),w:'',r:''}}):[];
   open_('retro')}
 function retroEx(i,f,v){RETRO.ex[i][f]=v}
-function retroAdd(n){if(!n)return;const ck=cardioKindOf(n);
-  RETRO.ex.push(ck?{n:n,k:ck,c:{}}:{n:n,s:3,w:'',r:''});open_('retro')}
+function retroAdd(n){if(!n)return;const ce=retroCardioEx(n);if(!ce&&n.indexOf('k:')===0)return;
+  RETRO.ex.push(ce||{n:n,s:3,w:'',r:''});open_('retro')}
 function retroC(i,f,v){const e=RETRO.ex[i];if(e){e.c=e.c||{};e.c[f]=v}}
 function retroDel(i){RETRO.ex.splice(i,1);open_('retro')}
 function retroSave(){
@@ -2204,7 +2234,13 @@ function retroSave(){
   if(!RETRO.ex.length){alert('Add at least one exercise.');return}
   /* ADDS a session to that day. It must never replace what is already there —
      overwriting is exactly the bug this release fixes. */
-  const l={sid:RETRO.sid||'',pid:D.active.id,week:curWeek(),done:true,retro:true,
+  /* A "cardio:" pick is not a session id — it is a one-movement log, named for
+     what was done. A from-scratch log that is all cardio gets the same naming,
+     so History reads "Run" or "Swim · Run" instead of "Session". */
+  const cpick=(RETRO.sid||'').indexOf('cardio:')===0;
+  const allC=RETRO.ex.every(e=>e.k&&CARDIO[e.k]);
+  const l={sid:cpick?'':(RETRO.sid||''),pid:D.active.id,week:curWeek(),done:true,retro:true,
+    name:(cpick||(!RETRO.sid&&allC))?RETRO.ex.slice(0,3).map(e=>e.n).join(' · '):undefined,
     start:new Date(RETRO.d).getTime(),ex:[],kcal:pnum(RETRO.kcal),hr:pnum(RETRO.hr),
     effort:pnum(RETRO.effort),mins:ptime(RETRO.mins),at:RETRO.at||''};
   RETRO.ex.forEach(e=>{
@@ -2966,12 +3002,15 @@ hist:key=>{const r=histRef(key),l=r.l;
 /* ---- log a workout that already happened ---- */
 retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
   const p=curP();
-  const sess=Object.keys(p.sessions).map(k=>[k,p.sessions[k].n])
-    .concat(D.mine.map(m=>[m.id,m.n]))
-    .concat(XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n]))
-    .concat(KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex']))
-    .concat(SBXORDER.map(k=>['sbx_'+k,SBX[k].n+' Complex']))
-    .concat(CALORDER.map(k=>['cal_'+k,CAL[k].n]));
+  /* Grouped, so cardio is a heading you can see rather than a name you have to
+     know is in there. */
+  const sg=[['This programme',Object.keys(p.sessions).map(k=>[k,p.sessions[k].n])],
+    ['My workouts',D.mine.map(m=>[m.id,m.n])],
+    ['Cardio',cardioPickList().reduce((a,g)=>a.concat(g[1].map(it=>['cardio:'+it[1],it[2]])),[])],
+    ['Striking',XTRAORDER.map(k=>[XTRA[k].id,XTRA[k].n])],
+    ['Complexes',KBXORDER.map(k=>['kbx_'+k,KBX[k].n+' Complex'])
+      .concat(SBXORDER.map(k=>['sbx_'+k,SBX[k].n+' Complex']))],
+    ['Calisthenics',CALORDER.map(k=>['cal_'+k,CAL[k].n])]].filter(g=>g[1].length);
   const opts=exOptions();   // Kettlebell · Rings · Calisthenics · Gym · Cardio
   return `<div class="mid">Log a workout you've already done</div>
   <div class="jm" style="margin:6px 0 13px">For the sessions you trained without the app open. It counts toward your volume, calories and PBs exactly like a live one.</div>
@@ -2991,7 +3030,7 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
   <div class="sec">Start from a session</div>
   <select onchange="retroSet('sid',this.value)">
     <option value="">Build it from scratch</option>
-    ${sess.map(s=>`<option value="${esc(s[0])}"${R.sid===s[0]?' selected':''}>${esc(s[1])}</option>`).join('')}</select>
+    ${sg.map(g=>`<optgroup label="${esc(g[0])}">${g[1].map(s=>`<option value="${esc(s[0])}"${R.sid===s[0]?' selected':''}>${esc(s[1])}</option>`).join('')}</optgroup>`).join('')}</select>
   <div class="sec">What you did</div>
   ${R.ex.length?R.ex.map((e,i)=>`<div class="card plain" style="background:var(--s2);padding:11px">
       <div class="row sp"><span style="font-weight:600;font-size:14px;flex:1">${esc(e.n)}</span>
@@ -3005,7 +3044,11 @@ retro:()=>{const R=RETRO;if(!R)return '<div class="mid">Nothing to log</div>';
         <div><div class="tiny">Reps</div><input type="text" inputmode="numeric" value="${esc(e.r)}" onchange="retroEx(${i},'r',this.value)"></div>
       </div></div>`}`).join('')
    :`<div class="note" style="margin-bottom:10px">Pick a session above, or add movements one at a time.</div>`}
-  <select id="rx" style="margin-top:8px">${opts}</select>
+  <div class="tiny" style="margin-top:10px">Cardio — distance, time, pace, heart rate</div>
+  <select id="rxc" style="margin-top:4px">${cardioPickOptions()}</select>
+  <button class="btn gh" style="margin-top:8px" onclick="retroAdd(document.getElementById('rxc').value)">Add cardio</button>
+  <div class="tiny" style="margin-top:12px">Strength — sets, kg, reps</div>
+  <select id="rx" style="margin-top:4px">${opts}</select>
   <button class="btn gh" style="margin-top:8px" onclick="retroAdd(document.getElementById('rx').value)">Add exercise</button>
   <button class="btn p" style="margin-top:14px" onclick="retroSave()">Log it</button>
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>`},
