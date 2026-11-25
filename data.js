@@ -39,6 +39,7 @@ const EX={
 'Rope tricep extension':{g:'gym',p:'push',m:['triceps'],c:'Elbows pinned to the sides, split the rope at the bottom.'},
 'Overhead cable tricep extension':{g:'gym',p:'push',m:['triceps'],c:'The stretched position — this is where the long head grows.'},
 'Skull crusher':{g:'gym',p:'push',m:['triceps'],c:'Lower to the forehead or just behind. Elbows stay pointed at the ceiling.'},
+'Dumbbell curl':{g:'gym',p:'pull',m:['biceps','forearms'],c:'Palms up, elbows pinned to the sides. Squeeze at the top, lower under control. No swing.'},
 'Close-grip bench press':{g:'gym',p:'push',m:['triceps','chest'],c:'Hands shoulder-width, elbows tucked. Your PB is 80×8.'},
 /* --- GYM: pull --- */
 'Deadlift':{g:'gym',p:'legs',m:['back','hams','glutes','traps','forearms'],c:'Bar over midfoot, lats engaged, push the floor away. Explosive concentric. Your PB is 160×1.'},
@@ -69,6 +70,7 @@ const EX={
 'Hack squat':{g:'gym',p:'legs',m:['quads','glutes'],c:'Deep. PB 160×8. Feet lower on the plate for more quad.'},
 'Leg press':{g:'gym',p:'legs',m:['quads','glutes'],c:'Deep ROM, do not let the low back round. PB 470×12.'},
 'Bulgarian split squat':{g:'cal',p:'legs',m:['quads','glutes'],c:'Rear foot elevated, long stride for glutes, short for quads. Deep and slow.'},
+'Dumbbell split squat':{g:'gym',p:'legs',m:['quads','glutes'],c:'A dumbbell in each hand, long stance, back knee to the floor. Front shin stays near vertical; drive through the front heel.'},
 'Walking lunge':{g:'cal',p:'legs',m:['quads','glutes','hams'],c:'Knee over toe on the front leg — this is prehab and strength in one.'},
 'Romanian deadlift':{g:'gym',p:'legs',m:['hams','glutes','back'],c:'Hinge, not squat. Bar stays against the legs. Feel the hamstring stretch.'},
 'Lying leg curl':{g:'gym',p:'legs',m:['hams'],c:'Slow eccentric. Hamstrings respond to controlled negatives.'},
@@ -1903,6 +1905,68 @@ PORDER.push('p15');
 /* Race day is a benchmark. Scored as a time, like the run PBs. */
 BENCH.push({k:'cup',n:'Calisthenics Cup',u:'time',pb:'',d:'50 squats · 10 pull-ups + 1 muscle-up unbroken · 30 push-ups · 15 chin-ups + 1 muscle-up unbroken · 30 dips. For time.'});
 BENCH.push({k:'ironman',n:'Ironman',u:'time',pb:'',d:'3.8km swim · 180km bike · 42.2km run. Race day — the number the whole of Ironman Strong is for.'});
+
+/* ================= P16 · JUVIES STRONGFIT =================
+   Juan's own programme (Nov 2026), written up in JHFP — Programme Design.
+   Compounds & complexes: four full-body strength days, each one heavy main
+   compound (6 × 3-6) and three supporting lifts (4 × 7-12), closed out by a
+   kettlebell complex; work, study & cardio days in between.
+
+   THE ROTATION IS A TRUE EVERY-OTHER-DAY QUEUE. Strength never falls on two
+   days running, and the two queues run independently: strength
+   A → B → C → D, cardio E → F → G. Four strength and three cardio sessions
+   interleaved only line up again after 24 days, so the schedule is 24 slots
+   long and the programme counts CYCLES (cycle:24) rather than weeks — the app
+   already measures a programme week as one pass of the schedule, and calling a
+   24-day pass a "week" would be a lie on screen. Juan's call, 25 Nov 2026.
+
+   The complexes are inlined from KBX (so this block must stay below KBX) as
+   ordinary movements tagged 'Complex': sets = rounds, reps = reps per round,
+   rest only after the last movement of each round. That makes finishing the
+   session mean finishing the lifts AND the complex — the Level up principle.
+
+   Exempt from the 5-7 exercise rule like P6: four lifts is the design, and
+   the complex movements are one finisher, not extra exercises. */
+function cxEx(k){const c=KBX[k];
+  return c.seq.map((x,i,a)=>({n:x[0],s:c.rounds,fix:1,r:String(x[1]),t:'Complex',rest:i===a.length-1?(c.rest||60):0}))}
+P.p16={id:'p16',name:'Juvies StrongFit',sub:'Compounds & complexes · full body every strength day · hard to kill, ready for anything',
+weeks:4,cycle:24,where:'Gym + home + outdoors',bias:'Hybrid strength',days:7,coach:'Juvies',
+why:'Be strong, be fit, and be able to do both on any given day. Four full-body strength days, each built on one heavy compound lift — deadlift, squat, bench press, weighted pull-up — with three supporting lifts, then closed out with a kettlebell complex for hypertrophy, cardio and power endurance. Between them, work, study and cardio days: run, swim, cycle, golf or hike, plus that day\'s complex. Strength falls every other day without exception, so the sessions run as a queue whatever the weekday. Main lift 6 × 3–6, heavy. Supporting lifts 4 × 7–12. Four exercises, no more. Level up every time: more weight, more reps, or the full workout and the complex finished.',
+weekText:'Strength every other day, never two days running. Strength in order: Deadlift → Squat & overhead press → Bench press & row → Pull-ups & dips. Work, study & cardio days between them, in order: Run or golf · Thor → Swim or golf · Zeus → Cycle, golf or hike · Achilles. The two queues meet again every 24 days — one cycle.',
+blocks:[{f:1,t:1,type:'Find your numbers',mod:0,note:'Cycle 1. Find a working weight for every lift: heavy main lift with one or two reps in reserve, supporting lifts at the top of 7–12 with clean form. Log everything — it is the number the next three cycles have to beat.'},
+{f:2,t:4,type:'Level up',mod:0,note:'Cycles 2–4. Beat the last session somewhere, every time: more weight, more reps, or the whole workout and the complex finished. When every set hits the top of the range, add load.'}],
+schedule:['A','E','B','F','C','G','D','E','A','F','B','G','C','E','D','F','A','G','B','E','C','F','D','G'],
+sessions:{
+A:{n:'Strength 1 · Deadlift',w:'gym',mins:65,ex:[
+  {n:'Deadlift',s:6,r:'3-6 · or trap bar',t:'Heavy',rest:180},
+  {n:'Incline dumbbell press',s:4,r:'7-12',rest:120},
+  {n:'Walking lunge',s:4,r:'7-12 per side',rest:90},
+  {n:'Hanging leg raise',s:4,r:'7-12',rest:60}].concat(cxEx('hercules'))},
+B:{n:'Strength 2 · Squat & overhead press',w:'gym',mins:70,ex:[
+  {n:'Back squat',s:6,r:'3-6',t:'Heavy',rest:180},
+  {n:'Barbell overhead press',s:4,r:'7-12',rest:120},
+  {n:'Push-up',s:4,r:'7-12',t:'Superset',rest:0},
+  {n:'Dumbbell pullover',s:4,r:'7-12',t:'Superset',rest:90},
+  {n:'Dumbbell curl',s:4,r:'7-12',t:'Superset',rest:0},
+  {n:'Skull crusher',s:4,r:'7-12',t:'Superset',rest:90}].concat(cxEx('gideon'))},
+C:{n:'Strength 3 · Bench press & row',w:'gym',mins:70,ex:[
+  {n:'Flat barbell bench press',s:6,r:'3-6',t:'Heavy',rest:180},
+  {n:'Barbell bent-over row',s:4,r:'7-12',rest:120},
+  {n:'Dumbbell split squat',s:4,r:'7-12 per side',rest:90},
+  {n:'Dragon flag',s:4,r:'7-12',rest:60}].concat(cxEx('david'))},
+D:{n:'Strength 4 · Pull-ups & dips',w:'gym',mins:65,ex:[
+  {n:'Weighted pull-up',s:6,r:'3-6',t:'Heavy',rest:180},
+  {n:'Weighted dip',s:4,r:'7-12',rest:120},
+  {n:'Romanian deadlift',s:4,r:'7-12',rest:120},
+  {n:'Standing calf raise',s:4,r:'7-12',t:'Superset',rest:0},
+  {n:'Tibialis raise',s:4,r:'7-12',t:'Superset',rest:60}].concat(cxEx('poseidon'))},
+E:{n:'Cardio 1 · Run or golf · Thor',w:'out',mins:60,ex:[
+  {n:'Run',s:1,r:'Run — or a round of golf instead',rest:0}].concat(cxEx('thor'))},
+F:{n:'Cardio 2 · Swim or golf · Zeus',w:'out',mins:60,ex:[
+  {n:'Swim',s:1,r:'Swim — or a round of golf instead',rest:0}].concat(cxEx('zeus'))},
+G:{n:'Cardio 3 · Cycle, golf or hike · Achilles',w:'out',mins:75,ex:[
+  {n:'Bike ride',s:1,r:'Cycle — or golf, or a hike',rest:0}].concat(cxEx('achilles'))}}};
+PORDER.push('p16');
 
 /* ================= THE ACTUAL LAST LINE =================
    Every content table — EX, KBX, CAL, P, MOBZONES, ZONES — is now populated, so

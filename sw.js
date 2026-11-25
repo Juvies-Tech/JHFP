@@ -98,7 +98,7 @@
       Striking), and Cardio is a heading in the Start-from-a-session list. Boxing,
       Kickboxing, Muay Thai and Bike/row/erg can now be logged that way too.
       A cardio-only log is named for what was done ("Run") in History. */
-const C = 'jhfp-beta-3.0.1';
+const C = 'jhfp-beta-3.1';
 const ASSETS = ['./', './index.html', './data.js', './app.js', './manifest.json', './icon.png', './icon-192.png',
   './fonts/bodoni-moda-latin-400-normal.woff2', './fonts/bodoni-moda-latin-500-normal.woff2',
   './fonts/hanken-grotesk-latin-400-normal.woff2', './fonts/hanken-grotesk-latin-500-normal.woff2',

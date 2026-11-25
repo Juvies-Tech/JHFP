@@ -6,6 +6,12 @@ let VIEW='today', SESS=null, TMR=null, TSEC=0, TSTART=null;
 function dIdx(d){d=d||new Date();return (d.getDay()+6)%7}          // Mon=0
 function daysBetween(a,b){return Math.floor((new Date(b)-new Date(a))/864e5)}
 function curP(){return P[D.active.id]||P.p3}
+/* A programme whose schedule is not seven days long counts CYCLES, not weeks:
+   one programme 'week' is one pass of the schedule, so P16's 24-slot rotation
+   would otherwise read as 'Week 2' after 24 days. Display only — the queue,
+   logs and block maths are unchanged. */
+function wkW(p,lower){const w=(p&&p.cycle)?'Cycle':'Week';return lower?w.toLowerCase():w}
+function wkWs(p,n){return n+' '+wkW(p,1)+(n===1?'':'s')}
 /* In queue mode the week advances on SESSIONS COMPLETED, not days elapsed —
    miss three days and you are still in week 2, because you have not done
    week 2's work yet. Falls back to the calendar for programmes with no
@@ -997,7 +1003,7 @@ function render(){
   queueSync();
   const p=curP(),w=curWeek(),b=blockFor(p,w);
   const H={today:['Today',new Date().toLocaleDateString('en-ZA',{weekday:'long',day:'numeric',month:'long'})],
-    train:[p.name,p.weeks?('Week '+w+' of '+p.weeks+' · '+b.type):'No programme · pick your own'],
+    train:[p.name,p.weeks?(wkW(p)+' '+w+' of '+p.weeks+' · '+b.type):'No programme · pick your own'],
     fuel:['Fuel','Strict carnivore · lean bulk'],
     prog:['Progress','Where you actually are'],
     more:['More','Programmes, mobility, library']}[VIEW];
@@ -1044,7 +1050,7 @@ function rToday(){
       <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Gym or home')}</span>
       <span class="pill">${s.mins} min</span></div>
       <div class="mid" style="margin:9px 0 3px">${esc(s.n)}</div>
-      <div class="sub">Week ${w} · ${esc(b.type)} · ${(x=>!x?'as written':setsFor(x,b.mod)>x.s?'volume up':setsFor(x,b.mod)<x.s?'volume down':'as written')(s.ex.find(e=>!e.k&&!cardioKindOf(e.n)&&!e.fix))}</div>
+      <div class="sub">${wkW(p)} ${w} · ${esc(b.type)} · ${(x=>!x?'as written':setsFor(x,b.mod)>x.s?'volume up':setsFor(x,b.mod)<x.s?'volume down':'as written')(s.ex.find(e=>!e.k&&!cardioKindOf(e.n)&&!e.fix))}</div>
       ${od?`<div class="warnbox" style="margin-top:10px">Carried over from ${od} day${od===1?'':'s'} ago. Nothing was skipped — the whole programme moved up with you, so this is still the next session you owe.</div>`:''}
       <div class="note" style="margin-top:9px">${esc(b.note)}</div>
       ${s.bare?`<div class="warnbox" style="margin-top:10px"><b>AM / PM double.</b> The endurance work this morning, the strength this evening — at least six hours apart, never in one session. If the evening lift falls away, rescue it rather than losing the day.</div>`
@@ -1157,7 +1163,7 @@ function rTrain(){
     const wk=weekDone();
     h+=`<button class="pickbar" onclick="open_('pick')">
       <div style="flex:1;min-width:0">
-        <div class="tiny">This week · ${wk.done} of ${wk.total} done</div>
+        <div class="tiny">${p.cycle?'This cycle · day '+(((D.active.qi||0)%schedLen())+1)+' of '+schedLen():'This week · '+wk.done+' of '+wk.total+' done'}</div>
         <div style="font-weight:700;font-size:14px;margin-top:1px">${esc(s.n)}</div>
       </div>
       <span class="pill a">Change</span></button>`;
@@ -1221,7 +1227,7 @@ function rTrain(){
 
   h+=`<div class="card acc">
     <div class="row sp"><span class="pill a">${esc(s.w==='gym'?'Gym':s.w==='home'?'Home':s.w==='out'?'Outdoors':'Either')}</span>
-    <span class="pill">${esc(b.type)} · wk ${w}/${p.weeks}</span></div>
+    <span class="pill">${esc(b.type)} · ${p.cycle?'cycle':'wk'} ${w}/${p.weeks}</span></div>
     <div class="mid" style="margin:9px 0 4px">${esc(s.n)}</div>
     <div class="note">${esc(s.mini&&s.note?s.note:b.note)}</div></div>`;
 
@@ -1557,7 +1563,7 @@ function blockSummary(){
   const top=Object.keys(byMuscle).filter(m=>MUSN[m])
     .sort((a,b)=>byMuscle[b]-byMuscle[a]).slice(0,4)
     .map(m=>({m:m,n:MUSN[m],v:Math.round(byMuscle[m])}));
-  return {id:p.id,name:p.name,weeks:p.weeks,start:start,end:end,
+  return {id:p.id,name:p.name,weeks:p.weeks,cycle:p.cycle||0,start:start,end:end,
     days:Math.max(1,daysBetween(start,end)+1),
     sessions:sessions,sets:sets,reps:reps,vol:Math.round(vol),
     kcal:Math.round(kcal),mins:Math.round(mins),
@@ -1806,7 +1812,7 @@ function rFuel(){
        footnote — the number is only as good as they are. */
     if(pr4&&pr12&&basis.days>=3){
       const card=(pr)=>`<div style="flex:1;min-width:0">
-        <div class="tiny">${pr.weeks} weeks</div>
+        <div class="tiny">${wkWs(pr,pr.weeks)}</div>
         <div class="big mono" style="color:${pr.kg>=0?'var(--acc)':'var(--ice)'}">${sgn1(pr.kg,'kg')}</div>
         <div class="jm" style="margin-top:3px">${sgn1(pr.lean,'kg')} lean<br>${sgn1(pr.fat,'kg')} fat</div></div>`;
       b+=`<div class="card amb" style="margin-top:10px">
@@ -1845,7 +1851,7 @@ function addFood(n,g){const F=FOOD.find(x=>x.n===n);if(!F||!g)return;
 function rProg(){
   const v=volume(HEATDAYS),p=curP(),w=curWeek();
   let h=sect('prog','Programme',{tone:'acc',open:true,
-    meta:p.weeks?('Week '+w+' of '+p.weeks):'Open-ended'},()=>
+    meta:p.weeks?(wkW(p)+' '+w+' of '+p.weeks):'Open-ended'},()=>
     `<div class="card acc"><div class="row sp"><div class="lbl" style="margin:0">${esc(p.name)}</div>
       <span class="pill a">${p.weeks?progPct()+'%':'Open'}</span></div>
       ${p.weeks?`<div class="bar" style="margin:10px 0 9px"><i style="width:${progPct()}%"></i></div>
@@ -2050,7 +2056,7 @@ function rMore(){
           <div class="jm" style="margin-top:2px">${esc(p.sub)}</div></div>
           ${on?`<span class="pill a">Active \u00b7 ${progPct()}%</span>`:''}</div>
         <div class="row" style="gap:6px;margin-top:9px;flex-wrap:wrap">
-          <span class="pill">${p.weeks} weeks</span><span class="pill">${p.days} days</span>
+          <span class="pill">${wkWs(p,p.weeks)}</span><span class="pill">${p.days} days</span>
           <span class="pill">${esc(p.where)}</span><span class="pill">${esc(p.bias)}</span></div></div>`});
     return b;});
 
@@ -3177,7 +3183,7 @@ blockdone:i=>{
   let h=`<div style="text-align:center;padding:6px 0 2px">
     <div class="lbl" style="letter-spacing:.22em">Block complete</div>
     <div class="mid" style="font-size:23px;margin-top:4px">${esc(s.name)}</div>
-    <div class="jm">${esc(s.start)} → ${esc(s.end)} · ${s.days} days${s.weeks?' · '+s.weeks+' weeks':''}</div>
+    <div class="jm">${esc(s.start)} → ${esc(s.end)} · ${s.days} days${s.weeks?' · '+(s.cycle?wkWs({cycle:1},s.weeks):s.weeks+' weeks'):''}</div>
   </div>
   <div class="grid3" style="margin:16px 0 10px">
     ${st('Sessions',s.sessions)}${st('Sets',s.sets)}${st('Movements',s.movements)}
@@ -3290,8 +3296,15 @@ pick:()=>{const p=curP(),wk=weekDone(),cur=todaySid();
   let h=`<div class="mid">Choose a workout</div>`;
   const ids=Object.keys(p.sessions||{});
   if(ids.length){
-    h+=`<div class="jm" style="margin:6px 0 12px">${esc(p.name)} · week ${curWeek()} · ${wk.done} of ${wk.total} done this week. Picking one does not change where you are in the block.</div>`;
-    ids.forEach(id=>{const x=p.sessions[id],did=wk.map[id],now=id===cur;
+    /* A cycle programme (P16) runs each session several times a cycle, so
+       "done at least once this cycle" would mark a session Done for 24 days —
+       even while it is Up next. There, Done means its LATEST turn up to the
+       cursor is done, and the header counts days of the cycle instead. */
+    const len=schedLen(),qi=D.active.qi||0,from=qi-qi%len,cw=curWeek();
+    const turns=id=>{let n=0;for(let i=from;i<=qi;i++)if(p.schedule[i%len]===id)n++;return n};
+    h+=`<div class="jm" style="margin:6px 0 12px">${esc(p.name)} · ${p.cycle?'cycle '+cw+' · day '+(qi%len+1)+' of '+len:'week '+cw+' · '+wk.done+' of '+wk.total+' done this week'}. Picking one does not change where you are in the block.</div>`;
+    ids.forEach(id=>{const x=p.sessions[id],now=id===cur,
+      did=p.cycle?(n=>n>0&&countDoneIn(id,cw)>=n)(turns(id)):wk.map[id];
       h+=`<button class="pk ${now?'now':''} ${did?'did':''}" onclick="pickSess('${escId(id)}')">
         <div style="flex:1;min-width:0">
           <div class="pkn">${esc(x.n)}${now?' <span class="pill a">Up next</span>':''}${did?' <span class="pill g">Done</span>':''}</div>
@@ -3457,7 +3470,7 @@ pg:id=>{const p=P[id],on=id===D.active.id,pct=progPct();
   return `<div class="mid">${esc(p.name)}</div>
     <div class="jm" style="margin-top:3px">${esc(p.sub)}</div>
     <div class="row" style="gap:6px;margin:12px 0;flex-wrap:wrap">
-      <span class="pill">${p.weeks?p.weeks+' weeks':'Open-ended'}</span>
+      <span class="pill">${p.weeks?wkWs(p,p.weeks):'Open-ended'}</span>
       <span class="pill">${p.days?p.days+' days/week':'Your call'}</span>
       <span class="pill">${esc(p.where)}</span><span class="pill">${esc(p.bias)}</span>
       ${p.fst?'<span class="pill a">FST-7</span>':''}${p.pavel?'<span class="pill a">Pavel rules</span>':''}
@@ -3465,20 +3478,20 @@ pg:id=>{const p=P[id],on=id===D.active.id,pct=progPct();
     ${p.coach?`<div class="jm" style="margin:-4px 0 10px">Method: ${esc(p.coach)}</div>`:''}
     <div class="note">${esc(p.why)}</div>
     <div class="sec">The week</div>
-    <div class="note">${!p.schedule
+    <div class="note">${p.weekText?esc(p.weekText):!p.schedule
       ? 'No fixed week. You choose each day \u2014 any programme\u2019s session, a complex, a benchmark, one of your own, or one the generator builds you.'
       : ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'].map((d,i)=>{const x=p.schedule[i];
         return `<b>${d}</b> \u2014 ${x==='rest'?'Rest':x==='sport'?'Sport':esc(p.sessions[x].n)+' <span style="color:var(--tx3)">('+p.sessions[x].mins+' min)</span>'}`}).join('<br>')}</div>
     <div class="sec">Blocks</div>
-    <div class="note">${p.blocks.map(b=>`<b>Weeks ${b.f}${b.t>b.f?'–'+b.t:''} · ${esc(b.type)}</b><br><span style="color:var(--tx2)">${esc(b.note)}</span>`).join('<br><br>')}</div>
+    <div class="note">${p.blocks.map(b=>`<b>${wkW(p)}${b.t>b.f?'s':''} ${b.f}${b.t>b.f?'–'+b.t:''} · ${esc(b.type)}</b><br><span style="color:var(--tx2)">${esc(b.note)}</span>`).join('<br><br>')}</div>
     ${p.minis&&p.minis.length?`<div class="sec">Strength snacks</div><div class="note">${esc(p.miniNote||'')}<br><br>${p.minis.map(m=>
       m.kbx?(KBX[m.kbx]?'<b>'+esc(KBX[m.kbx].n)+' complex</b> \u2014 kettlebell':'')
       :m.sbx?(SBX[m.sbx]?'<b>'+esc(SBX[m.sbx].n)+' complex</b> \u2014 sandbag':'')
       :'<b>'+esc(m.n)+'</b> \u2014 '+m.ex.map(e=>esc(e.n)+' '+(e.s>1?e.s+'\u00d7':'')+esc(e.r)).join(' \u00b7 ')).filter(Boolean).join('<br>')}</div>`:''}
     ${on?`<div class="card" style="margin-top:16px;background:var(--s2)"><div class="lbl">Active</div>
       <div class="bar"><i style="width:${pct}%"></i></div>
-      <div class="jm" style="margin-top:7px">${p.weeks?pct+'% through. Week '+curWeek()+' of '+p.weeks+'.':'Running with no block. Nothing to fall behind on.'}</div>
-      ${p.weeks?`<button class="btn gh" style="margin-top:10px" onclick="restart()">Restart from week 1</button>`:''}</div>`
+      <div class="jm" style="margin-top:7px">${p.weeks?pct+'% through. '+wkW(p)+' '+curWeek()+' of '+p.weeks+'.':'Running with no block. Nothing to fall behind on.'}</div>
+      ${p.weeks?`<button class="btn gh" style="margin-top:10px" onclick="restart()">Restart from ${wkW(p,1)} 1</button>`:''}</div>`
     :`<button class="btn p" style="margin-top:16px" onclick="switchTo('${id}')">Start this programme</button>`}
     <button class="btn gh" style="margin-top:7px" onclick="close_()">Close</button>`},
 
@@ -3489,7 +3502,7 @@ hop:id=>{const p=P[id],cp=curP(),pct=progPct();
     <button class="btn p" onclick="doSwitch('${escId(id)}')">Start ${esc(p.name)}</button>
     <button class="btn gh" style="margin-top:7px" onclick="close_()">Stay where I am</button>`;
   return `<div class="mid">You're ${pct}% through ${esc(cp.name)}</div>
-    <div class="note" style="margin:11px 0 14px">Programme-hopping is the single most common reason people stop progressing. ${esc(cp.name)} has ${cp.weeks-curWeek()+1} weeks left, and the block you're in was written to build on the one before it. Finishing beats optimising.</div>
+    <div class="note" style="margin:11px 0 14px">Programme-hopping is the single most common reason people stop progressing. ${esc(cp.name)} has ${wkWs(cp,cp.weeks-curWeek()+1)} left, and the block you're in was written to build on the one before it. Finishing beats optimising.</div>
     <div class="warnbox">If you genuinely can't run it — injury, travel, or the gym access changed — switching is the right call. If you're just bored, the answer is usually to add weight, not change programme.</div>
     <button class="btn gh" style="margin-top:12px" onclick="close_()">Stay on ${esc(cp.name)}</button>
     <button class="btn" style="margin-top:7px;color:var(--tx3)" onclick="doSwitch('${id}')">Switch anyway to ${esc(p.name)}</button>`},
@@ -3679,7 +3692,7 @@ set:()=>{const S=D.settings,TH=themeGet();return `<div class="mid">Settings</div
   <button class="btn gh" style="margin-top:9px" onclick="recalc()">Recalculate from my numbers</button>
   <button class="btn p" style="margin-top:14px" onclick="saveSet()">Save</button>
   <button class="btn gh" style="margin-top:7px" onclick="close_()">Cancel</button>
-  <div class="jm" style="margin-top:14px">JHFP Beta 3.0 · built for Juvies. All data lives on this device — back it up from More.</div>`}
+  <div class="jm" style="margin-top:14px">JHFP Beta 3.1 · built for Juvies. All data lives on this device — back it up from More.</div>`}
 };
 
 /* ================= SHEET ACTIONS ================= */
@@ -3962,7 +3975,7 @@ function expObs(){
   const p=curP(),who=curProfile(),nm=who&&who.name?who.name:'';
   let m='---\ntype: log\nsource: JHFP\nprofile: '+(nm||'unknown')+'\ntags: [health, fitness, jhfp]\n---\n\n';
   m+='# JHFP training log — '+(nm?nm+' — ':'')+todayISO()+'\n\n';
-  m+='**Programme:** '+p.name+(p.weeks?' · week '+curWeek()+' of '+p.weeks+' ('+progPct()+'% complete)':' · no block, self-directed')+'  \n';
+  m+='**Programme:** '+p.name+(p.weeks?' · '+wkW(p,1)+' '+curWeek()+' of '+p.weeks+' ('+progPct()+'% complete)':' · no block, self-directed')+'  \n';
   m+='**Training streak:** '+trainStreak()+' days · **Protocol streak:** '+streak()+' days · **Mobility streak:** '+mobStreak()+' days\n\n';
   const v=volume(7);
   m+='## Weekly volume (sets per muscle, last 7 days)\n\n';
